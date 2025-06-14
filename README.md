@@ -36,5 +36,14 @@ To get started with this project:
    ```bash
    git clone https://github.com/IssAndileN/WEB PAGE.git
 
-  cd WEB-PAGE
+  cd "C:\Users\User\Downloads\WPR 161 project\WPR 161 project"
+
+  3. Contributing
+Contributions are welcome! Please fork the repository and submit a pull request.
+
+4. License
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+5. Author
+   Andile Ntuli
 
