@@ -1,0 +1,438 @@
+ACC.pickupinstore = {
+
+    _autoload: [
+        "bindClickPickupInStoreButton",
+        "bindPickupButton",
+        "bindPickupClose",
+        "bindPickupInStoreSearch"
+    ],
+
+    storeId: "",
+
+    unbindPickupPaginationResults: function () {
+        $(document).off("click", "#colorbox .js-pickup-store-pager-prev")
+        $(document).off("click", "#colorbox .js-pickup-store-pager-next")
+    },
+
+    bindPickupPaginationResults: function () {
+        const listHeight = $("#colorbox .js-pickup-store-list").height();
+        const $listitems = $("#colorbox .js-pickup-store-list > li");
+        const listItemHeight = $listitems.height();
+        const displayCount = 5;
+        const totalCount = $listitems.length;
+        let curPos = 0
+
+        $("#colorbox .js-pickup-store-pager-item-all").text(totalCount);
+        $("#colorbox .store-navigation-pager").show();
+        checkPosition()
+
+        $(document).on("click", "#colorbox .js-pickup-store-pager-prev", function (e) {
+            e.preventDefault();
+            $listitems.css("transform", "translateY(" + (curPos + listHeight) + "px)")
+            curPos = curPos + listHeight;
+            checkPosition("prev");
+        });
+
+        $(document).on("click", "#colorbox .js-pickup-store-pager-next", function (e) {
+            e.preventDefault();
+            $listitems.css("transform", "translateY(" + (curPos - listHeight) + "px)")
+            curPos = curPos - listHeight;
+            checkPosition("next");
+        });
+
+        function checkPosition() {
+            const curPage = Math.ceil((curPos / (displayCount * listItemHeight)) * -1) + 1;
+            $("#colorbox .js-pickup-store-pager-item-from").text(curPage * displayCount - 4);
+            const tocount = (curPage * displayCount > totalCount) ? totalCount : curPage * displayCount;
+
+            if (curPage * displayCount - 4 === 1) {
+                $("#colorbox .js-pickup-store-pager-prev").hide()
+            } else {
+                $("#colorbox .js-pickup-store-pager-prev").show()
+            }
+
+            if (curPage * displayCount >= totalCount) {
+                $("#colorbox .js-pickup-store-pager-next").hide()
+            } else {
+                $("#colorbox .js-pickup-store-pager-next").show()
+            }
+
+            $("#colorbox .js-pickup-store-pager-item-to").text(tocount);
+        }
+    },
+
+    bindPickupInStoreQuantity: function () {
+        $('.pdpPickupQtyPlus').click(function (e) {
+            e.preventDefault();
+
+            const inputQty = $('.js-add-pickup-cart #pdpPickupAddtoCartInput');
+            const currentVal = parseInt(inputQty.val());
+            const maxVal = inputQty.data('max');
+
+            if (!isNaN(currentVal) && currentVal < maxVal) {
+                inputQty.val(currentVal + 1);
+                inputQty.change();
+            }
+        });
+
+        $('.pdpPickupQtyMinus').click(function (e) {
+            e.preventDefault();
+            const inputQty = $('.js-add-pickup-cart #pdpPickupAddtoCartInput');
+            const currentVal = parseInt(inputQty.val());
+            const minVal = inputQty.data('min');
+
+            if (!isNaN(currentVal) && currentVal > minVal) {
+                inputQty.val(currentVal - 1);
+                inputQty.change();
+            }
+        });
+
+        $("body").on("keyup", ".js-add-pickup-cart #pdpPickupAddtoCartInput", function (event) {
+            const input = $(event.target);
+            input.val(this.value.match(/[0-9]*/));
+        });
+    },
+
+    bindPickupInStoreSearch: function () {
+        $(document).on('click', '#pickupstore_location_search_button', function () {
+            ACC.pickupinstore.locationSearchSubmit($('#locationForSearch').val(), $('#atCartPage').val(), $('#entryNumber').val(), $(this).parents('form').attr('action'));
+            return false;
+        });
+
+        $(document).on('keypress', '#locationForSearch', function (e) {
+            if (e.keyCode === 13) {
+                e.preventDefault();
+                ACC.pickupinstore.locationSearchSubmit($('#locationForSearch').val(), $('#atCartPage').val(), $('input.entryNumber').val(), $(this).parents('form').attr('action'));
+                return false;
+            }
+        });
+    },
+
+    bindPickupHereInStoreButtonClick: function () {
+        $(document).on('click', '.pickup_add_to_bag_instore_button', function () {
+            $(this).prev('.hiddenPickupQty').val($('#pickupQty').val());
+        });
+
+        $(document).on('click', '.pickup_here_instore_button', function () {
+            $(this).prev('.hiddenPickupQty').val($('#pickupQty').val());
+            ACC.colorbox.close();
+        });
+    },
+
+    locationSearchSubmit: function (location, cartPage, entryNumber, actionUrl, latitude, longitude) {
+        $("#colorbox .js-add-to-cart-for-pickup-popup, #colorbox .js-qty-selector-minus, #colorbox .js-qty-selector-input, #colorbox .js-qty-selector-plus").attr("disabled", "disabled");
+
+        $.post({
+            url: actionUrl,
+            data: {
+                locationQuery: location,
+                cartPage: cartPage,
+                entryNumber: entryNumber,
+                latitude: latitude,
+                longitude: longitude
+            },
+            dataType: "text",
+            success: function (response) {
+                ACC.pickupinstore.refreshPickupInStoreColumn(response);
+            }
+        });
+    },
+
+    createListItemHtml: function (data, id) {
+        const $rdioEl = $("<input>").attr("type", "radio")
+            .attr("name", "storeNamePost")
+            .attr("id", "pickup-entry-" + id)
+            .attr("data-id", id)
+            .addClass("js-pickup-store-input")
+            .val(data.displayName);
+
+        const $spanElStInfo = $("<span>")
+            .addClass("pickup-store-info")
+            .append($("<span>").addClass("pickup-store-list-entry-name").text(data.displayName))
+            .append($("<span>").addClass("pickup-store-list-entry-address").text(data.line1 + " " + data.line2))
+            .append($("<span>").addClass("pickup-store-list-entry-city").text(data.town));
+
+        const $spanElStAvail = $("<span>")
+            .addClass("store-availability")
+            .append(
+                $("<span>")
+                    .addClass("available")
+                    .append(document.createTextNode(data.formattedDistance))
+                    .append("<br>")
+                    .append(data.stockPickupHtml)
+            );
+
+        const $lblEl = $("<label>").addClass("js-select-store-label")
+            .attr("for", "pickup-entry-" + id)
+            .append($spanElStInfo)
+            .append($spanElStAvail);
+
+        return $("<li>").addClass("pickup-store-list-entry")
+            .append($rdioEl)
+            .append($lblEl);
+    },
+
+    refreshPickupInStoreColumn: function (data) {
+        data = $.parseJSON(data);
+        const $storeList = $('#colorbox .js-pickup-store-list');
+        $storeList.empty();
+
+        $("#colorbox .js-pickup-component").data("data", data);
+
+        for (let i = 0; i < data["data"].length; i++) {
+            $storeList.append(ACC.pickupinstore.createListItemHtml(data["data"][i], i));
+        }
+
+        ACC.pickupinstore.unbindPickupPaginationResults();
+        ACC.pickupinstore.bindPickupPaginationResults();
+
+        // select the first store
+        const firstInput = $("#colorbox .js-pickup-store-input")[0];
+        $(firstInput).click();
+
+        $("#colorbox .js-add-to-cart-for-pickup-popup, #colorbox .js-qty-selector-minus, #colorbox .js-qty-selector-input, #colorbox .js-qty-selector-plus").removeAttr("disabled");
+    },
+
+    bindClickPickupInStoreButton: function () {
+        $(document).on("click", ".js-pickup-in-store-button", function (e) {
+            e.preventDefault();
+            const ele = $(this);
+            const productId = "pickupModal_" + $(this).attr('id');
+            let productIdNUM = $(this).attr('id');
+            productIdNUM = productIdNUM.split("_");
+            productIdNUM = productIdNUM[1];
+
+            const boxContent = $("#popup_store_pickup_form > #pickupModal").clone();
+            const titleHeader = $('#pickupTitle > .pickup-header').html();
+
+            ACC.colorbox.open(titleHeader, {
+                html: boxContent,
+                width: "960px",
+                onComplete: function () {
+                    $("#colorbox .js-add-to-cart-for-pickup-popup, #colorbox .js-qty-selector-minus, #colorbox .js-qty-selector-input, #colorbox .js-qty-selector-plus").attr("disabled", "disabled");
+
+                    boxContent.show();
+                    ACC.pickupinstore.pickupStorePager();
+                    const tabs = $("#colorbox .js-pickup-tabs").accessibleTabs({
+                        tabhead: '.tabhead',
+                        tabbody: '.tabbody',
+                        fx: 'show',
+                        fxspeed: 0,
+                        currentClass: 'active',
+                        autoAnchor: true,
+                        cssClassAvailable: true
+                    });
+
+                    $("#colorbox #pickupModal *").each(function () {
+                        if ($(this).attr("data-id") !== undefined) {
+                            $(this).attr("id", $(this).attr("data-id"));
+                            $(this).removeAttr("data-id");
+                        }
+                    });
+
+                    $("#colorbox input#locationForSearch").focus();
+
+                    // set a unique id
+                    $("#colorbox #pickupModal").attr("id", productId);
+
+                    // insert the product image
+                    $("#colorbox #" + productId + " .thumb").html(ele.data("imgHtml"));
+
+                    // insert the product cart details
+                    $("#colorbox #" + productId + " .js-pickup-product-price").html(ele.data("productcart"));
+
+                    const variants = ele.data("productcartVariants");
+					const variantsBox = $("#colorbox #" + productId + " .js-pickup-product-variants");
+                    $.each(variants, function (key, value) {
+                        variantsBox.append($("<span>").text(value));
+                    });
+
+                    // insert the product name
+                    $("#colorbox  #" + productId + " .js-pickup-product-info").html(ele.data("productnameHtml"));
+
+                    const $colorboxFormSearchPOSForm = $("#colorbox #" + productId + " form.searchPOSForm");
+                    // insert the form action
+                    $colorboxFormSearchPOSForm.attr("action", ele.data("actionurl"));
+
+                    // set a unique id for the form
+                    $colorboxFormSearchPOSForm.attr("id", "pickup_in_store_search_form_product_" + productIdNUM);
+
+                    // set the quantity, if the quantity is undefined set the quantity to the data-value defined in the jsp
+                    const $pdpPickupAddtoCartInput = $('#pdpPickupAddtoCartInput');
+                    $("#colorbox #" + productId + " #pdpPickupAddtoCartInput").attr("value", ($pdpPickupAddtoCartInput.val() !== undefined ? $pdpPickupAddtoCartInput.val() : ele.data("value")));
+                    // set the entry Number
+                    $("#colorbox #" + productId + " input#entryNumber").attr("value", ele.data("entrynumber"));
+                    // set the cartPage bolean
+                    $("#colorbox #" + productId + " input#atCartPage").attr("value", ele.data("cartpage"));
+
+
+                    if (navigator.geolocation && !ACC.global.isGeolocationPermissionDenied()) {
+                        navigator.geolocation.getCurrentPosition(
+                            function (position) {
+                                ACC.global.setStoredGeolocation(position)
+                                ACC.pickupinstore.locationSearchSubmit('', $('#atCartPage').val(), ele.data("entrynumber"), ele.data("actionurl"), position.coords.latitude, position.coords.longitude);
+                            },
+                            function (error) {
+                                if(error.code === GeolocationPositionError.PERMISSION_DENIED) { ACC.global.storeGeolocationPermissionDenied(true) }
+                                console.log("An error occurred... The error code and message are: " + error.code + "/" + error.message);
+                            }
+                        );
+                    }
+
+                    ACC.product.bindToAddToCartStorePickUpForm();
+                }
+            });
+        })
+    },
+
+    pickupStorePager: function () {
+        $(document).on("change", "#colorbox .js-pickup-store-input", function (e) {
+            e.preventDefault();
+            $("#colorbox .js-pickup-tabs li.first a").click();
+			let storeData = $("#colorbox .js-pickup-component").data("data");
+            storeData = storeData["data"];
+			const storeId = $(this).data("id");
+			const $ele = $("#colorbox .display-details");
+            $.each(storeData[storeId], function (key, value) {
+                if (key === "url") {
+                    $ele.find(".js-store-image").empty();
+                    if (value !== "") {
+                        $ele.find(".js-store-image").append($("<img>").attr("src", value).attr("alt", ""));
+                    }
+                } else if (key === "productcode") {
+                    $ele.find(".js-store-productcode").val(value);
+                } else if (key === "openings") {
+					const $oele = $ele.find(".js-store-" + key);
+                    $oele.empty();
+                    if (value !== "") {
+                        $.each(value, function (key2, value2) {
+                            $oele.append($("<dt>").text(key2));
+                            $oele.append($("<dd>").text(value2));
+                        });
+                    }
+                } else {
+                    if (value !== "") {
+                        $ele.find(".js-store-" + key).text(value);
+                    } else {
+                        $ele.find(".js-store-" + key).empty();
+                    }
+                }
+            });
+
+            $(document).one("click", "#colorbox .js-pickup-map-tab", function () {
+                ACC.pickupinstore.storeId = storeData[storeId];
+                ACC.global.addGoogleMapsApi("ACC.pickupinstore.drawMap");
+            });
+
+			const $e = $("#colorbox .pickup-store-list-entry input:checked");
+			const $storeId = $("#add_to_cart_storepickup_form .js-store-id");
+            $storeId.attr("id", $e.attr("id"));
+            $storeId.attr("name", $e.attr("name"));
+            $storeId.val($e.val());
+
+            const $addToCardStorepickupForm = $("#add_to_cart_storepickup_form");
+            if (storeData[storeId]["stockLevel"] > 0 || storeData[storeId]["stockLevel"] === "") {
+				const input = $("#add_to_cart_storepickup_form .js-qty-selector-input");
+                input.data("max", storeData[storeId]["stockLevel"]);
+                ACC.productDetail.checkQtySelector(input, "reset");
+                $addToCardStorepickupForm.show()
+            } else {
+                $addToCardStorepickupForm.hide()
+            }
+        });
+
+        $(document).on("click", ".js-select-store-label", function () {
+            $("#colorbox .js-pickup-component").addClass("show-store");
+            $("#colorbox #cboxTitle .headline-inner").addClass('hidden-xs hidden-sm');
+            $("#colorbox #cboxTitle .back-to-storelist").removeClass('hidden-xs hidden-sm');
+        });
+
+        $(document).on("click", ".js-back-to-storelist", function () {
+            $("#colorbox .js-pickup-component").removeClass("show-store");
+            $("#colorbox #cboxTitle .headline-inner").removeClass('hidden-xs hidden-sm');
+            $("#colorbox #cboxTitle .back-to-storelist").addClass('hidden-xs hidden-sm');
+        });
+    },
+
+    bindPickupButton: function () {
+        $(document).on("click", ".js-pickup-button", function (e) {
+            e.preventDefault();
+			const $e = $(this).parent().nextAll(".js-inline-layer");
+            $e.addClass("open");
+
+            //$e.height($e.height())
+			const h = $e.height();
+            $e.removeClass("open");
+
+            $e.animate({
+                height: h
+            })
+        })
+    },
+
+    bindPickupClose: function () {
+        $(document).on("click", ".js-close-inline-layer", function (e) {
+            e.preventDefault();
+			const $e = $(this).parents(".js-inline-layer");
+
+            $e.animate({
+                height: 0
+            })
+        })
+    },
+
+    checkIfPointOfServiceIsEmpty: function (cartEntryDeliveryModeForm) {
+        return (!cartEntryDeliveryModeForm.find('.pointOfServiceName').text().trim().length);
+    },
+
+    validatePickupinStoreCartEntires: function () {
+        let validationErrors = false;
+        $("form.cartEntryShippingModeForm").each(function () {
+			const formid = "#" + $(this).attr('id');
+            if ($(formid + ' input[value=pickUp][checked]').length && ACC.pickupinstore.checkIfPointOfServiceIsEmpty($(this))) {
+                $(this).addClass("shipError");
+                validationErrors = true;
+            }
+        });
+
+        if (validationErrors) {
+            $('div#noStoreSelected').show().focus();
+            $(window).scrollTop(0);
+        }
+        return validationErrors;
+    },
+
+    drawMap: function () {
+		const storeInformation = ACC.pickupinstore.storeId;
+		const $colorboxMapCanvas = $("#colorbox .js-map-canvas");
+
+        if ($colorboxMapCanvas.length > 0) {
+            $colorboxMapCanvas.attr("id", "pickup-map");
+			const centerPoint = new google.maps.LatLng(storeInformation["storeLatitude"], storeInformation["storeLongitude"]);
+
+			const mapOptions = {
+                zoom: 13,
+                zoomControl: true,
+                panControl: true,
+                streetViewControl: false,
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                center: centerPoint
+            };
+
+			const map = new google.maps.Map(document.getElementById("pickup-map"), mapOptions);
+			const marker = new google.maps.Marker({
+                position: new google.maps.LatLng(storeInformation["storeLatitude"], storeInformation["storeLongitude"]),
+                map: map,
+                title: storeInformation["name"],
+                icon: "https://maps.google.com/mapfiles/marker" + 'A' + ".png"
+            });
+			const infowindow = new google.maps.InfoWindow({
+                content: ACC.common.encodeHtml(storeInformation["name"]),
+                disableAutoPan: true
+            });
+            google.maps.event.addListener(marker, 'click', function () {
+                infowindow.open(map, marker);
+            });
+        }
+    }
+};

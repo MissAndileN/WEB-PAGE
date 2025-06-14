@@ -1,0 +1,358 @@
+ACC.carousel = {
+
+    _autoload: [
+        ["bindCarousel", $(".js-owl-carousel").length > 0],
+        "bindJCarousel"
+    ],
+
+    carouselConfig: {
+        "default": {
+            navigation: true,
+            pagination: true,
+            items: $("body").hasClass("pageLabel-allxtraSavingsPage") ? 4 : 6,
+            items: $("body").hasClass("pageLabel-accountXtraSavingsPlus") ? 4 : 6,
+            itemsDesktop: $("body").hasClass("pageLabel-allxtraSavingsPage") ? [1920, 4] : [1920, 6],
+            itemsDesktop: $("body").hasClass("pageLabel-accountXtraSavingsPlus") ? [1920, 4] : [1920, 6],
+            itemsDesktopSmall: [1280, 4],
+            itemsTablet: [1024, 4],
+            itemsMobile: [636, 2],
+            scrollPerPage: 6,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+                this.$elem.addClass("is-loaded");
+                let $ajaxCarousel = this.$elem.closest('.js-ajax-carousel');
+                if ($ajaxCarousel.length) {
+                    ACC.common.bonusBuyHeightItemProduct();
+                }
+            }
+        },
+        "exclusives": {
+            navigation: true,
+            pagination: true,
+            items: 3,
+            itemsDesktop: [3840, 3],
+            itemsDesktopSmall: [1280, 3],
+            itemsTablet: [1024, 3],
+            itemsMobile: [636, 1],
+            scrollPerPage: 1,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+            }
+        },
+        "departments": {
+            navigation: true,
+            pagination: true,
+            items: 8,
+            itemsDesktop: [3840, 8],
+            itemsDesktopSmall: [1280, 6],
+            itemsTablet: [1024, 4],
+            itemsMobile: [636, 2],
+            scrollPerPage: 1,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+                const $owlWrapper = this.$elem.find(".owl-wrapper");
+                const lengthOwlItem = this.$elem.find(".owl-item").length;
+
+                enquire
+                    .register("screen and (min-width: 1281px)", function () {
+                        ACC.carousel.isCenterCarousel($owlWrapper, lengthOwlItem, 8);
+                    })
+                    .register("screen and (max-width: 1280px)", function () {
+                        ACC.carousel.isCenterCarousel($owlWrapper, lengthOwlItem, 6);
+                    })
+                    .register("screen and (max-width: 1024px)", function () {
+                        ACC.carousel.isCenterCarousel($owlWrapper, lengthOwlItem, 4);
+                    })
+                    .register("screen and (max-width: 636px)", function () {
+                        ACC.carousel.isCenterCarousel($owlWrapper, lengthOwlItem, 2);
+                    });
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+            }
+        },
+        "brands": {
+            navigation: true,
+            pagination: true,
+            items: 6,
+            itemsDesktop: [3840, 6],
+            itemsDesktopSmall: [1280, 4],
+            itemsTablet: [1024, 4],
+            itemsMobile: [636, 2],
+            scrollPerPage: 1,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+            }
+        },
+        "brands2": {
+            navigation: true,
+            pagination: true,
+            items: 4,
+            itemsDesktop: [3840, 6],
+            itemsDesktopSmall: [1280, 6],
+            itemsTablet: [1024, 6],
+            itemsMobile: [636, 4],
+            scrollPerPage: 1,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+            }
+        },
+        "productgrid": {
+            navigation: true,
+            pagination: true,
+            items: 2,
+            itemsDesktop: [1920, 2],
+            itemsDesktopSmall: [1280, 2],
+            itemsTablet: [1024, 2],
+            itemsMobile: [636, 1],
+            scrollPerPage: 1,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+            }
+        },
+        "special-buys": {
+            navigation: true,
+            pagination: true,
+            items: 3,
+            itemsDesktop: [3840, 3],
+            itemsDesktopSmall: [1280, 3],
+            itemsTablet: [1024, 3],
+            itemsMobile: [636, 1],
+            scrollPerPage: 1,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+            }
+        },
+        "moreReasonsToJoin": {
+            navigation: false,
+            pagination: false,
+            items: 3,
+            itemsDesktop: [3840, 3],
+            itemsDesktopSmall: [1280, 3],
+            itemsTablet: [1024, 2],
+            itemsMobile: [636, 1],
+            scrollPerPage: 1,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                ACC.carousel.afterInitCarousel(this);
+            },
+            afterAction: function () {
+                this.$elem.find(".pagination-position").css("width", this.$elem.find(".owl-pagination").outerWidth() + "px");
+            }
+        },
+
+        "masthead": {
+            navigation: true,
+            pagination: true,
+            items: 1,
+            itemsDesktop: [3840, 1],
+            itemsDesktopSmall: [1280, 1],
+            itemsTablet: [1024, 1],
+            itemsMobile: [636, 1],
+            scrollPerPage: 6,
+            lazyLoad: true,
+            navigationText: [
+                "<i class='shoprite-icon-chevron-left'></i>",
+                "<i class='shoprite-icon-chevron-right'></i>"
+            ],
+            afterInit: function () {
+                const carousel = this.$elem;
+                carousel.css({"height": "auto", "overflow": "visible"});
+
+                carousel.find(".owl-buttons .owl-prev").after("<div class='pagination-position'></div>");
+
+                carousel.append("<div class='js-owl-masthead__header'></div>");
+                const owlDefaultHeader = carousel.find(".js-owl-masthead__header");
+
+
+                const controls = carousel.find(".owl-controls");
+                controls.appendTo(owlDefaultHeader);
+            },
+            afterAction: function () {
+                this.$elem.addClass("is-loaded");
+            }
+        },
+
+        "rotating-image": {
+            navigation: false,
+            pagination: true,
+            singleItem: true
+        },
+        "lazy-reference": {
+            navigation: true,
+            navigationText: ["<span class='glyphicon glyphicon-chevron-left'></span>", "<span class='glyphicon glyphicon-chevron-right'></span>"],
+            pagination: false,
+            items: 7,
+            itemsDesktop: [1920, 7],
+            itemsDesktopSmall: [1280, 5],
+            itemsTablet: [1024, 4],
+            itemsMobile: [636, 3],
+            lazyLoad: true
+        }
+    },
+
+    isCenterCarousel: function (owlWrapper, items, maxItems) {
+        if (items < maxItems) owlWrapper.addClass("is-center");
+        else owlWrapper.removeClass("is-center")
+    },
+
+    afterInitCarousel: function (carousel) {
+        const $carousel = carousel.$elem;
+        $carousel.css({"height": "auto", "overflow": "visible"});
+        const dataCarousel = $carousel.data();
+        $carousel.find(".owl-buttons .owl-prev").after("<div class='pagination-position' style='width: " + $carousel.find(".owl-pagination").outerWidth() + "px;'></div>");
+        $carousel.prepend("<div class='js-owl-default__header'></div>");
+        const owlDefaultHeader = $carousel.find(".js-owl-default__header");
+
+        if (dataCarousel.title) owlDefaultHeader.append("<h2 class='js-owl-default__title'>" + dataCarousel.title + "</h2>");
+        if (dataCarousel.viewAllText && dataCarousel.viewAllUrl) owlDefaultHeader.append("<a href='" + dataCarousel.viewAllUrl + "' class='js-owl-default__view-all'>" + dataCarousel.viewAllText + "</a>");
+        const controls = $carousel.find(".owl-controls");
+        if(controls.length) {
+            if(!owlDefaultHeader.html()) {
+                owlDefaultHeader.append(document.createElement('DIV'));
+            }
+            owlDefaultHeader.append(controls);
+        }
+
+        if ($carousel.closest(".personalization-container").length > 0) {
+            let isLoaded = false;
+
+            enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenXsMax) + ")", {
+                match: function () {
+                    if (!isLoaded) {
+                        isLoaded = true;
+                        const $owlItems = $carousel.find(".owl-item");
+                        $owlItems.eq(0).addClass("hidden-xs");
+                    }
+                }
+            });
+        }
+    },
+
+    bindCarousel: function ($carousel) {
+        const $carousels = $carousel || $('.js-owl-carousel');
+        $carousels.each(function () {
+            const $c = $(this);
+            $.each(ACC.carousel.carouselConfig, function (key, config) {
+                if ($c.hasClass("js-owl-" + key)) {
+                    const $e = $(".js-owl-" + key);
+                    let totalItems;
+                    if (key === "exclusives") {
+                        totalItems = parseInt($c.data("totalItems"));
+                        if (totalItems < 3) {
+                            config.items = 2;
+                            config.itemsDesktop = [3840, 2];
+                            config.itemsDesktopSmall = [1280, 2];
+                            config.itemsTablet = [1024, 2];
+                            config.itemsMobile = [636, 1];
+                        }
+                        if (totalItems < 4) {
+                            config.itemsMobile = [636, totalItems];
+                            $c.addClass('owl-carousel-stack-xs');
+                            $c.parent().addClass('owl-carousel-stack-xs-wrapper');
+                        }
+                    }
+                    if ($c.data("autoScroll") && $c.data("scrollDelay") > 0) {
+                        config.autoPlay = $c.data("scrollDelay") * 1000;
+                    }
+                    if ($c.closest(".personalization-container").length > 0 && $c.find(".personalization-container__left-side").length === 0) {
+                        config.rewindNav = false;
+                        config.beforeInit = function () {
+                            const $carouselContainer = $c.closest(".personalization-container");
+                            const $carouselContainerLeftSide = $carouselContainer.find(".personalization-container__left-side");
+                            if (!$c.find(".personalization-container__left-side").length) {
+                                $c.prepend($carouselContainerLeftSide[0].outerHTML);
+                            }
+                        }
+                    }
+                    $e.owlCarousel(config, totalItems);
+                }
+            });
+            $(".js-owl-masthead").find(".carousel__item").css("display", "");
+        });
+    },
+
+    bindJCarousel: function () {
+        $(".modal").colorbox({
+            onComplete: function () {
+                ACC.common.refreshScreenReaderBuffer();
+            },
+            onClosed: function () {
+                ACC.common.refreshScreenReaderBuffer();
+            }
+        });
+        $('.svw').each(function () {
+            $(this).waitForImages(function () {
+                $(this).slideView({toolTip: true, ttOpacity: 0.6, autoPlay: true, autoPlayTime: 8000});
+            });
+        });
+    },
+
+    mastheadConfiguration: function (autosScroll, scrollDelay) {
+        if (autosScroll && scrollDelay > 0) {
+            const autoPlayConfig = ACC.carousel.carouselConfig.masthead;
+            autoPlayConfig.autoPlay = scrollDelay * 1000;
+            return autoPlayConfig;
+        } else {
+            return ACC.carousel.carouselConfig.masthead;
+        }
+    }
+
+};

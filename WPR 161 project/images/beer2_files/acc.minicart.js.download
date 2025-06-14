@@ -1,0 +1,47 @@
+ACC.minicart = {
+
+    _autoload: [
+        "bindMiniCart"
+    ],
+
+    bindMiniCart: function () {
+        $(document).on("click", ".js-mini-cart-link", function (e) {
+            e.preventDefault();
+            const $this = $(this);
+            const cartName = ($this.find(".js-mini-cart-count").html() !== 0) ? $this.data("miniCartName") : $this.data("miniCartEmptyName");
+
+            ACC.colorbox.open(ACC.common.encodeHtml(cartName), {
+                href: $this.data("miniCartUrl"),
+                maxWidth: "100%",
+                width: "380px",
+                initialWidth: "380px"
+            });
+        });
+
+        $(document).on("click", ".js-mini-cart-close-button", function (e) {
+            e.preventDefault();
+            ACC.colorbox.close();
+        });
+    },
+
+    updateMiniCartDisplay: function () {
+    	const $miniCartLink = $(".js-mini-cart-link");
+        const cartItems = $miniCartLink.data("miniCartItemsText");
+
+        $.ajax({
+            url: $miniCartLink.data("miniCartRefreshUrl"),
+            cache: false,
+            type: 'GET',
+            dataType: 'json',
+            success: function (jsonData) {
+            	const $miniCartCount = $(".js-mini-cart-link .js-mini-cart-count");
+                const $cartItems = $("<span>").addClass("items-desktop hidden-xs hidden-sm").text(" " + cartItems);
+                const $numberItem = $("<span>").addClass("nav-items-total").text(jsonData.miniCartCount).append($cartItems);
+                $miniCartCount.empty();
+                $miniCartCount.append($numberItem);
+                $(".js-mini-cart-link .js-mini-cart-price").text(jsonData.miniCartPrice);
+            }
+        });
+    }
+
+};

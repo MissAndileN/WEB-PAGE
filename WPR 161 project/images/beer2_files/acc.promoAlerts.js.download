@@ -1,0 +1,980 @@
+ACC.promoAlerts = {
+
+    _autoload: [
+        ['bindPromoAlertsNotificationPreference', $('#promoAlertsPreferenceForm').length > 0],
+        ['bindHeaderEnablePromoAlertsPreference', $('#js-header-enable-promo-alerts-form').length > 0],
+        ['displayPromoAlertsPopupOnPageLoad', $('.js-promo-alerts-popup'.length > 0)],
+        ['normalizePromotionsBoxHeight', $(".promo-alerts").length],
+        ['bindRenderEnterUsernameStep', $('.js-promo-alerts-logout-sign-in').length],
+        ['bindReloadPageOnFlyoutClosing', $('.js-flyout-close').length],
+        ['bindDisplayEmailForm', $('.js-display-email-form #headerEnablePromoAlerts').length],
+        ['bindValidateLoginForm', $('.js-promo-alerts-email-form').length],
+        ['bindAutoOpenFlyout', $('.promo-alerts__menu').length],
+        ['bindSendVerificationEmail', $('.promo-alerts__menu').length],
+        ['bindOtpSubmit', $('.promo-alerts__menu').length],
+        ['bindChangeUsername', $('.promo-alerts__menu').length],
+        ['bindResendOtpAction', $('.promo-alerts__menu').length],
+        ['bindRenderRegistration', $('.promo-alerts__menu').length],
+        ['bindLoggedInOptInChangeAction', $('.promo-alerts__menu').length],
+        ['bindOptOutModalActions', $('#PromoAlertsOptOutModal').length],
+        ['bindAccountUpdatePreference', $('#promoAlertNotificationsToggle').length],
+        ['bindAccountOptOutModalActions', $('#PromoAlertsAccountOptOutModal').length],
+        ['bindSelectAllAlerts', $('.js-select-all-alerts').length],
+        ['bindSelectAlert', $('.js-alert-check').length],
+        ['bindDeleteSelectedPromoAlerts', $('.js-remove-selected-alerts').length],
+        ['bindShowRemovedAlertsMessage', $('.js-alerts-removed-message').length],
+        ['changeViews', $('.change-views').length]
+    ],
+
+    steps: {
+        InitialStep: "initialStep",
+        UsernameStep: "usernameStep",
+        OtpStep: "otpStep",
+        PasswordStep: "passwordStep",
+        VerifyEmailStep: "verifyEmailStep",
+        VerificationEmailSentStep: "verificationEmailSentStep",
+        EmailNotFoundStep: "emailNotFoundStep",
+        LinkEmailStep: "linkEmailStep",
+        LinkEmailOtpStep: "linkEmailOtpStep"
+    },
+
+    optInForEmailAlerts: false,
+    reloadPageOnFlyoutClosing: false,
+    emailToLink: '',
+    currentStep: 'initialStep',
+    selectedPromoAlerts: {
+        yourStore: [],
+        nearYourStore: [],
+        all: []
+    },
+    alertTypeToRemove: '',
+
+    bindSelectAlert: function () {
+        $(document).on("change", ".js-alert-check", function () {
+            const $this = $(this);
+            const alertType = $this.closest(".js-promo-alerts-section").data("alertType");
+            ACC.promoAlerts.addOrRemoveAlert($this.data("alertObj"), alertType);
+
+            if (ACC.promoAlerts.selectedPromoAlerts[alertType].length > 0) {
+                $this.closest(".js-promo-alerts-section").find(".js-remove-selected-alerts").removeClass("hidden");
+            } else {
+                $this.closest(".js-promo-alerts-section").find(".js-remove-selected-alerts").addClass("hidden");
+            }
+        });
+    },
+
+    bindSelectAllAlerts: function () {
+        $(document).on("click", ".js-select-all-alerts", function () {
+            const $this = $(this), $alertRows = $this.closest(".js-promo-alerts-section").find(".js-alert-check");
+            const alertType = $this.closest(".js-promo-alerts-section").data("alertType");
+            if ($this.attr("data-select") === "true") {
+                $alertRows.each(function () {
+                    const $this = $(this);
+                    if (!$this.is(":checked")) {
+                        $this.prop("checked", true);
+                        ACC.promoAlerts.addOrRemoveAlert($this.data("alertObj"), alertType);
+                    }
+                });
+                $this.attr("data-select", !$alertRows.length);
+                $this.closest(".js-promo-alerts-section").find(".js-remove-selected-alerts").removeClass("hidden");
+                $this.text(loc("promotional.alert.unselect.all.alerts"));
+            } else {
+                $alertRows.each(function () {
+                    const $this = $(this);
+                    if ($this.is(":checked")) {
+                        $this.prop("checked", false);
+                        ACC.promoAlerts.addOrRemoveAlert($this.data("alertObj"), alertType);
+                    }
+                });
+                $this.attr("data-select", true);
+                $this.closest(".js-promo-alerts-section").find(".js-remove-selected-alerts").addClass("hidden");
+                $this.text(loc("promotional.alert.select.all.alerts"));
+            }
+        });
+    },
+
+    bindDeleteSelectedPromoAlerts: function () {
+        $(document).on('click', '.js-remove-selected-alerts', function (e) {
+            e.preventDefault();
+            const $this = $(this);
+            ACC.promoAlerts.alertTypeToRemove = $this.closest(".js-promo-alerts-section").data("alertType");
+            $('#removeSelectedAlertsForm').submit();
+        });
+    },
+
+    bindPostDeleteSelectedAlerts: function (e) {
+        e.preventDefault();
+
+        if (ACC.promoAlerts.alertTypeToRemove.length > 0) {
+            const alertType = ACC.promoAlerts.alertTypeToRemove;
+            const alertsToRemove = ACC.promoAlerts.selectedPromoAlerts[alertType];
+
+            const products = [];
+            alertsToRemove.forEach(alert => products.push(alert.code));
+
+            if (products.length > 0) {
+                const url = $(this).attr('action');
+                const method = $(this).attr('method');
+                const formData = ACC.promoAlerts.getFormData($(this));
+                formData.products = products;
+
+                $(".loading-background").show();
+                $.ajax({
+                    type: method,
+                    url: url,
+                    data: formData,
+                    success: function () {
+                        window.location.replace(ACC.config.encodedContextPath + '/my-account/promo-alerts?alerts-removed=true');
+                    },
+                    error: function () {
+                        $(".loading-background").hide();
+                    }
+                });
+            }
+        }
+    },
+
+    bindShowRemovedAlertsMessage: function () {
+        const $alertMessage = $('.js-alerts-removed-message');
+        setTimeout(function () {
+            $alertMessage.addClass("is-hide");
+            setTimeout(function () {
+                $alertMessage.remove();
+            }, 500);
+        }, 2500);
+    },
+
+    addOrRemoveAlert: function (alertObject, alertType) {
+        const found = ACC.promoAlerts.findAlert(ACC.promoAlerts.selectedPromoAlerts[alertType],
+            alertObject);
+
+        if (!found) {
+            ACC.promoAlerts.selectedPromoAlerts[alertType].push(alertObject);
+        } else {
+            const index = ACC.promoAlerts.selectedPromoAlerts[alertType].indexOf(found);
+            ACC.promoAlerts.selectedPromoAlerts[alertType].splice(index, 1);
+        }
+    },
+
+    findAlert: function (list, elementToFind) {
+        return list.find(function (element) {
+            return element.code === elementToFind.code;
+        });
+    },
+
+    bindPromotionalAlertsBtn: function (e) {
+        e.preventDefault();
+        const form = $(this);
+        const isOnAlert = form.data("isOnAlert");
+        const url = isOnAlert ? form.data("removeUrl") : form.data("addUrl");
+        const productCode = form.data("productCode");
+        const reload = form.closest(".js-promo-alerts-reload-page").length > 0;
+        const method = form.attr('method');
+
+        $.ajax({
+            type: method,
+            url: url,
+            data: form.serialize(),
+            success: function (data) {
+                ACC.promoAlerts.handleResponse(data, productCode, !isOnAlert, reload);
+            },
+            error: function () {
+
+            }
+        });
+    },
+
+    bindPromoAlertsNotificationPreference: function () {
+        $('#promoAlertNotificationsToggle').change(function () {
+            const $submitButton = $('.js-update-preferences-btn');
+            if ($submitButton.length === 0) {
+                $('#promoAlertNotificationsEnabledInput').val(this.checked);
+                $('#promoAlertsPreferenceForm').submit();
+            }
+        });
+    },
+
+    bindDeleteAllPromoAlertsForm: function (e) {
+        e.preventDefault();
+        const $alertsToRemove = $('.js-all-promo-alert');
+
+        if ($alertsToRemove.length > 0) {
+            const products = [];
+            $alertsToRemove.each(function () {
+                products.push($(this).val());
+            });
+
+            const url = $(this).attr('action');
+            const method = $(this).attr('method');
+            const formData = ACC.promoAlerts.getFormData($(this));
+            formData.products = products;
+
+            $(".loading-background").show();
+            $.ajax({
+                type: method,
+                url: url,
+                data: formData,
+                success: function () {
+                    window.location.replace(ACC.config.encodedContextPath + '/my-account/promo-alerts?alerts-removed=true');
+                },
+                error: function () {
+                    $(".loading-background").hide();
+                }
+            });
+        }
+
+    },
+
+    getFormData: function ($form) {
+        const formArray = $form.serializeArray();
+        const result = {};
+
+        $.map(formArray, function (n) {
+            result[n['name']] = n['value'];
+        });
+
+        return result;
+    },
+
+    handleResponse: function (data, productCode, added, reload) {
+        if ($(data).hasClass("js-ajax-redirect")) {
+            window.location.href = $(data).data("redirectUrl");
+        } else if ($(data).hasClass("promoAlertsJSON")) {
+            const result = $.parseJSON($(data).html());
+            if (result["success"]) {
+                if (reload) {
+                    window.location.reload();
+                } else {
+                    $(".loading-background").hide();
+                    ACC.promoAlerts.updateProductPromoAlerts(productCode, added);
+                    ACC.ajaxcomponent.loadHeaderPromotionalAlerts();
+                }
+            } else {
+                // TODO promoAlerts Display an error message to the user
+                $(".loading-background").hide();
+                alert(result["message"]);
+            }
+        }
+    },
+
+    updateProductPromoAlerts: function (productCode, added) {
+        const alertsForProductCode = $(".js-promo-alerts-product-form[data-product-code='" + productCode + "']");
+        alertsForProductCode.each(function () {
+            const button = $(this).find(".js-promo-alert-product-btn");
+            const text = $(this).find(".js-promo-alert-product-text");
+            const container = text.closest('.external-link-cnt')
+            const icon = $(this).find(".js-promo-alert-product-icon");
+            if (added) {
+                button.addClass("promo-alerts-button__button--active");
+                text.text($(this).data("textAlertAdded"));
+                icon.removeClass("shoprite-icon-promo-alert-add");
+                icon.addClass("shoprite-icon-promo-alert-active");
+                $(this).data("isOnAlert", true);
+            } else {
+                button.removeClass("promo-alerts-button__button--active");
+                text.text($(this).data("textAddAlert"));
+                icon.removeClass("shoprite-icon-promo-alert-active");
+                icon.addClass("shoprite-icon-promo-alert-add");
+                $(this).data("isOnAlert", false);
+            }
+        });
+    },
+
+    bindHeaderEnablePromoAlertsPreference: function () {
+        const preferenceForm = $('#js-header-enable-promo-alerts-form');
+        const preferenceButton = $(".js-header-enable-promo-alerts-btn");
+        const preferenceInput = $(".js-header-enable-promo-alerts-input");
+        const preferenceInputHidden = $(".js-header-enable-promo-alerts-input-hidden");
+        const checked = preferenceInput.is(":checked");
+
+        preferenceInput.change(function () {
+            preferenceButton.prop("disabled", checked === this.checked);
+        });
+
+        preferenceForm.submit(function (e) {
+            e.preventDefault();
+
+            const activatePreference = preferenceInput.is(":checked");
+            preferenceInputHidden.val(activatePreference);
+
+            const url = preferenceForm.attr('action');
+            const method = preferenceForm.attr('method');
+            const data = preferenceForm.serialize();
+
+            $(".loading-background").show();
+            $.ajax({
+                type: method,
+                url: url,
+                data: data,
+                success: function () {
+                    window.location.reload();
+                },
+                error: function () {
+                    $(".loading-background").hide();
+                }
+            });
+        });
+    },
+
+    displayPromoAlertsPopup: function () {
+        const promoAlertPopup = $(".js-promo-alerts-popup");
+        if (promoAlertPopup.length > 0) {
+            let a = new Date();
+            a = new Date(a.getTime() + 1000 * 60 * 60 * 24 * 365 * 100); // Expires in 100 years
+            document.cookie = 'cookie-promo-alerts-popup=true; path=/; expires=' + a.toGMTString() + '; secure';
+
+            const $promoAlertsMenu = $(".promo-alerts__menu");
+            const $promoAlertsSubmenu = $promoAlertsMenu.find(".promo-alerts__submenu");
+            if ($promoAlertsMenu.length) {
+                promoAlertPopup.appendTo($promoAlertsMenu);
+                $promoAlertsSubmenu.addClass("hidden");
+                promoAlertPopup.removeClass("hidden");
+            }
+
+            $(".js-promo-alerts-popup-close").on("click", function () {
+                $promoAlertsSubmenu.removeClass("hidden");
+                promoAlertPopup.remove();
+            });
+        }
+    },
+
+    displayPromoAlertsPopupOnPageLoad: function () {
+        if ($(".js-promo-alerts-popup").data("openOnLoad")) {
+            ACC.promoAlerts.displayPromoAlertsPopup();
+        }
+    },
+
+    normalizePromotionsBoxHeight: function (type) {
+        let $promoAlerts;
+        if (type === "menu") $promoAlerts = $(".promo-alerts__submenu");
+        else $promoAlerts = $(".promo-alerts--page");
+
+        const $products = $promoAlerts.find(".product");
+        const $productMessages = $products.find(".item-product__message");
+        let minHeight = 0;
+
+        $.each($productMessages, function (index, element) {
+            if ($(element).outerHeight() > minHeight) minHeight = $(element).outerHeight()
+        });
+        $productMessages.css("min-height", minHeight + "px");
+    },
+
+    bindRenderEnterUsernameStep: function () {
+        $(document).on('click', '.js-promo-alerts-logout-sign-in', function (e) {
+            e.preventDefault();
+
+            ACC.promoAlerts.optInForEmailAlerts = false;
+            const url = $('.js-promo-alerts-reload-page').data('signInUrl');
+            ACC.promoAlerts.getFragmentUsingAjax(url, ACC.promoAlerts.replaceContent);
+        });
+    },
+
+    bindValidateLoginForm: function () {
+        $.validator.addMethod('emailOrMobile', function (value, element) {
+            return this.optional(element) || ($.isNumeric(value) ? ACC.validations.validateMobileNumber(value)
+                : ACC.validations.validateEmail(value));
+        }, loc('input.enter.email.or.phone'));
+
+        const loginForm = $('#loginForm');
+        if (loginForm.length > 0) {
+            loginForm.validate({
+                ignore: '.not-active',
+                errorElement: 'span',
+                errorClass: 'sr-error',
+                rules: {
+                    j_username: {
+                        required: true,
+                        emailOrMobile: true
+                    },
+                    j_password: {
+                        minlength: 8,
+                        maxlength: 128
+                    },
+                },
+                messages: {
+                    j_password: {
+                        minlength: loc('login.password.min.length')
+                    }
+                },
+                errorPlacement: function (error, element) {
+                    element.parent().append(error);
+                },
+                onkeyup: function () {
+                    ACC.validations.validateForm(loginForm);
+                },
+                onfocusout: function (element) {
+                    this.element(element);
+                },
+                submitHandler: function (form) {
+                    if (ACC.global.runRecaptcha($(form))) {
+                        if (ACC.promoAlerts.currentStep === ACC.promoAlerts.steps['UsernameStep']) {
+                            ACC.promoAlerts.postFormUsingAjax(form, ACC.promoAlerts.replaceContent);
+                        } else {
+                            ACC.promoAlerts.doLoginUsingAjax(form);
+                        }
+                    }
+                }
+            });
+        }
+
+        $.validator.addMethod('fullEmail', function (value, element) {
+            return this.optional(element) || ACC.validations.validateEmail(value);
+        }, loc('input.enter.email'));
+
+        const $emailForm = $('#emailForm');
+        if ($emailForm.length > 0) {
+            $emailForm.validate({
+                errorElement: 'span',
+                errorClass: 'sr-error',
+                rules: {
+                    j_username: {
+                        required: true,
+                        fullEmail: true
+                    }
+                },
+                errorPlacement: function (error, element) {
+                    element.parent().append(error);
+                },
+                onkeyup: function () {
+                    ACC.validations.validateForm($emailForm);
+                },
+                onfocusout: function (element) {
+                    this.element(element);
+                },
+                submitHandler: function (form) {
+                    if (ACC.global.runRecaptcha($(form))) {
+                        ACC.promoAlerts.postFormUsingAjax(form, ACC.promoAlerts.replaceContent);
+                    }
+                }
+            });
+        }
+
+        $.validator.addMethod('fullPhone', function (value, element) {
+            return this.optional(element) || ACC.validations.validateMobileNumber(value);
+        }, loc('form.validator.fullPhone'));
+
+        const $linkEmailForm = $('#linkEmailForm');
+        if ($linkEmailForm.length > 0) {
+            $linkEmailForm.validate({
+                errorElement: 'span',
+                errorClass: 'sr-error',
+                rules: {
+                    j_username: {
+                        required: true,
+                        fullPhone: true
+                    }
+                },
+                errorPlacement: function (error, element) {
+                    element.parent().append(error);
+                },
+                onkeyup: function () {
+                    ACC.validations.validateForm($linkEmailForm);
+                },
+                onfocusout: function (element) {
+                    this.element(element);
+                },
+                submitHandler: function (form) {
+                    if (ACC.global.runRecaptcha($(form))) {
+                        ACC.promoAlerts.postFormUsingAjax(form, ACC.promoAlerts.replaceContent);
+                    }
+                }
+            });
+        }
+    },
+
+    doLoginUsingAjax: function (form) {
+        ACC.promoAlerts.postFormUsingAjax(form, function (response) {
+            if (response instanceof Object && !$.isEmptyObject(response)) {
+                if (response.success) {
+                    const $jUsername = $('.js-promo-alerts-flyout-content #loginForm').find('#j_username');
+                    const isMobile = $.isNumeric($jUsername.val());
+                    ACC.login.registerGAEvents(isMobile);
+
+                    if (response.redirectUrl) {
+                        // For non covered login scenarios, redirect to proper flow
+                        window.location.href = response.redirectUrl;
+                    } else if (response.successCallback) {
+                        ACC.promoAlerts.onLoginSuccess(response);
+                    }
+                } else if (response.errorCallback) {
+                    ACC.promoAlerts.onLoginError(response);
+                }
+            }
+        })
+    },
+
+    bindOtpSubmit: function () {
+        $(document).on("click", ".js-promo-alerts-otp .js-otp-submit", function (e) {
+            e.preventDefault();
+            const loginFrom = $("#loginForm");
+            const passwordInput = $("#j_password");
+            const rememberMeInput = $("#rememberMe");
+            const otpInput = $("#oneTimePin");
+            const checkboxInput = $("#loginRememberMe");
+
+            passwordInput.val(otpInput.val());
+            rememberMeInput.val(checkboxInput.length > 0 && checkboxInput.is(":checked"));
+
+            ACC.promoAlerts.doLoginUsingAjax(loginFrom);
+        });
+    },
+
+    doInitialValidation: function () {
+        const loginForm = $("#loginForm");
+        const jUsername = loginForm.find("#j_username");
+        if (jUsername.is(":visible") && jUsername.val()) {
+            ACC.validations.validateForm(loginForm);
+        }
+    },
+
+    bindReloadPageOnFlyoutClosing: function () {
+        $(document).on('click', '.js-flyout-close', function (e) {
+            e.preventDefault();
+            if (ACC.promoAlerts.reloadPageOnFlyoutClosing === true) {
+                window.location.reload();
+            } else {
+                const $menu = $('.promo-alerts__menu');
+                const $html = $('html');
+
+                $menu.removeClass('is-show');
+                $html.removeClass('is-block');
+            }
+        });
+    },
+
+    bindChangeUsername: function () {
+        $(document).on('click', '.js-promo-alerts-flyout-content .js-ajax-login-change-username', function (e) {
+            e.preventDefault();
+            ACC.promoAlerts.getFragmentUsingAjax($(this).attr("href"), function (html) {
+                if ($(html).hasClass("js-promo-alerts-flyout-content")) {
+                    $(".js-promo-alerts-flyout-content").replaceWith($(html));
+
+                    ACC.promoAlerts.bindValidateLoginForm();
+                    ACC.promoAlerts.doInitialValidation();
+                    ACC.promoAlerts.updateCurrentStep(html);
+                    ACC.global.loadActionsForm();
+                    ACC.global.loadInputEffect();
+                    ACC.global.loadRecaptchas();
+                }
+            });
+        })
+    },
+
+    bindResendOtpAction: function () {
+        $(document).on('click', '.js-promo-alerts-flyout-content .js-ajax-login-resend-otp', function (e) {
+            e.preventDefault();
+            ACC.promoAlerts.getFragmentUsingAjax($(this).attr("href"), function (html) {
+                if ($(html).hasClass("js-promo-alerts-flyout-content")) {
+                    $(".js-promo-alerts-flyout-content").replaceWith($(html));
+
+                    ACC.promoAlerts.bindValidateLoginForm();
+                    ACC.promoAlerts.doInitialValidation();
+                    ACC.promoAlerts.updateCurrentStep(html);
+                    ACC.global.loadActionsForm();
+                    ACC.global.loadInputEffect();
+                    ACC.global.loadRecaptchas();
+                    ACC.otp.reloadOtpBindings();
+                }
+            });
+        });
+    },
+
+    bindDisplayEmailForm: function () {
+        $(document).on('change', '#headerEnablePromoAlerts', function (e) {
+            e.preventDefault();
+            const $emailFormWrapper = $('.js-promo-alerts-email-form');
+            const resetUrl = $('.js-promo-alerts-flyout-content').data('resetUrl');
+
+            if ($emailFormWrapper.length > 0) {
+                if ($(this).is(':checked')) {
+                    $emailFormWrapper.removeClass('hidden');
+                    ACC.promoAlerts.optInForEmailAlerts = true;
+                } else {
+                    if (ACC.promoAlerts.currentStep === ACC.promoAlerts.steps['InitialStep']) {
+                        $emailFormWrapper.addClass('hidden');
+                        $emailFormWrapper.find("span[class='sr-error']").remove();
+
+                        const $emailInput = $emailFormWrapper.find("input[type='email']");
+                        $emailInput.removeClass('used');
+                        $emailInput.removeClass('sr-error');
+                        $emailInput.val('');
+
+                        ACC.promoAlerts.optInForEmailAlerts = false;
+                    } else if (resetUrl.length > 0) {
+                        ACC.promoAlerts.getFragmentUsingAjax(resetUrl, ACC.promoAlerts.replaceContent);
+                    }
+                }
+            }
+        });
+    },
+
+    bindAutoOpenFlyout: function () {
+        const queryParams = ACC.global.getURlQueryParams();
+        if (queryParams['verify-email-promo-alerts'] && queryParams['verify-email-promo-alerts'] === 'true') {
+            const $menu = $('.promo-alerts__menu');
+            const $html = $('html');
+
+            $menu.toggleClass('is-show');
+            $html.toggleClass('is-block');
+
+            const token = queryParams['token'];
+            if (token.length > 0) {
+                const url = $('.js-promo-alerts-flyout-content').data('verifyEmailUrl') + '?token=' + token;
+                ACC.promoAlerts.getFragmentUsingAjax(url, function (html) {
+                    ACC.promoAlerts.replaceContent(html);
+
+                    // clear the query params from the url without reloading the page to avoid problems when closing
+                    // the flyout
+                    const uri = window.location.href.toString();
+                    if (uri.indexOf("?") > 0) {
+                        const parametersToRemove = ['token', 'verify-email-promo-alerts'];
+                        const cleanedUri = ACC.global.removeURLParameters(uri, parametersToRemove);
+                        window.history.replaceState({}, document.title, cleanedUri);
+                    }
+
+                    if ($(html).find('.js-header-enable-promo-alerts-input').is(':checked')) {
+                        ACC.promoAlerts.activateAlert('optInAlert');
+                    }
+
+                    if ($(html).find('.js-header-promotion-alerts-content').length > 0) {
+                        ACC.ajaxcomponent.loadHeaderPromotionalAlerts();
+                    }
+                });
+            }
+        }
+    },
+
+    bindSendVerificationEmail: function () {
+        $(document).on('click', '.js-send-verification-email-submit', function (e) {
+            e.preventDefault();
+
+            const $form = $('.js-send-verification-email-form #loginForm');
+            if ($form.length > 0) {
+                ACC.promoAlerts.postFormUsingAjax($form, ACC.promoAlerts.replaceContent);
+            }
+        });
+    },
+
+    bindRenderRegistration: function () {
+        $(document).on('click', '.js-promo-alerts-register', function (e) {
+            e.preventDefault();
+            const url = $(this).data('actionUrl');
+            if (url.length > 0) {
+                ACC.promoAlerts.getFragmentUsingAjax(url, function (response) {
+                    if ($(response).find('.js-promo-alerts-registration').length > 0) {
+                        $(".js-promo-alerts-flyout-content").html(response);
+
+                        ACC.global.loadActionsForm();
+                        ACC.global.loadInputEffect();
+                        ACC.register.validateRegister();
+                        ACC.register.acceptTermsRegister();
+                        ACC.register.postValidateDetailsStep();
+                        ACC.register.postValidateCommunicationStep();
+                        ACC.register.getPreviousRegistrationStep();
+                        ACC.register.saidPassportNumber();
+                        ACC.register.xtraSaveNumberOnlyDigitsInputs();
+                        ACC.register.handleInterestClicks();
+                        ACC.register.bindRegisterOtpSubmit();
+                        ACC.register.bindResendOtpAction();
+                        ACC.dataPicker.datePicker();
+                    }
+                });
+            }
+        });
+    },
+
+    bindLoggedInOptInChangeAction: function () {
+        $(document).on('change', '.js-opt-in-content #headerEnablePromoAlerts', function (e) {
+            e.preventDefault();
+
+            const activatePreference = $(this).is(":checked");
+            if (activatePreference) {
+                const $hiddenInput = $('.js-header-enable-promo-alerts-input-hidden');
+                $hiddenInput.val(activatePreference);
+
+                const $preferenceForm = $('#js-header-enable-promo-alerts-form');
+                if ($preferenceForm.length > 0) {
+                    ACC.promoAlerts.postFormUsingAjax($preferenceForm, function (response) {
+                        if ($(response).hasClass('js-opt-in-content')) {
+                            $('.js-opt-in-content').replaceWith($(response));
+                            ACC.promoAlerts.updateCurrentStep(response);
+
+                            if ($(response).find('.js-header-enable-promo-alerts-input').is(':checked')
+                                && !(ACC.promoAlerts.currentStep === ACC.promoAlerts.steps['VerifyEmailStep']
+                                    || ACC.promoAlerts.currentStep === ACC.promoAlerts.steps['EmailNotFoundStep'])) {
+                                ACC.promoAlerts.activateAlert('optInAlert');
+                            }
+
+                            ACC.promoAlerts.reloadPageOnFlyoutClosing = false;
+                            ACC.promoAlerts.bindValidateLoginForm();
+                            ACC.promoAlerts.doInitialValidation();
+                            ACC.global.loadActionsForm();
+                            ACC.global.loadInputEffect();
+                            ACC.global.loadRecaptchas();
+
+                            if ($(response).find('.js-header-promotion-alerts-content').length > 0) {
+                                ACC.ajaxcomponent.loadHeaderPromotionalAlerts();
+                            }
+                        }
+                    });
+                }
+            } else if (ACC.promoAlerts.currentStep === ACC.promoAlerts.steps['VerifyEmailStep']
+                || ACC.promoAlerts.currentStep === ACC.promoAlerts.steps['EmailNotFoundStep']) {
+                $('.js-promo-alerts-email-form-section').remove();
+            } else {
+                $("#PromoAlertsOptOutModal").addClass("is-show");
+            }
+        });
+    },
+
+    bindOptOutModalActions: function () {
+        $(document).on('click', '#PromoAlertsOptOutModal .js-promo-alert-opt-out', function (e) {
+            e.preventDefault();
+            const $hiddenInput = $('.js-header-enable-promo-alerts-input-hidden');
+            $hiddenInput.val(false);
+
+            const $button = $(this);
+            const $preferenceForm = $('#js-header-enable-promo-alerts-form');
+            if ($preferenceForm.length > 0) {
+                ACC.promoAlerts.postFormUsingAjax($preferenceForm, function (response) {
+                    if ($(response).hasClass('js-opt-in-content')) {
+                        $button.closest('#PromoAlertsOptOutModal').removeClass('is-show');
+                        $('.js-opt-in-content').replaceWith($(response));
+
+                        if (!$(response).find('.js-header-enable-promo-alerts-input').is(':checked')) {
+                            ACC.promoAlerts.activateAlert('optOutAlert');
+                        }
+
+                        if ($(response).find('.js-header-promotion-alerts-content').length > 0) {
+                            ACC.ajaxcomponent.loadHeaderPromotionalAlerts();
+                        }
+
+                        ACC.promoAlerts.reloadPageOnFlyoutClosing = false;
+                    }
+                });
+            }
+        });
+
+        $(document).on('click', '#PromoAlertsOptOutModal .js-promo-alert-opt-out-close', function (e) {
+            e.preventDefault();
+            $('.js-header-enable-promo-alerts-input').prop('checked', true);
+            $(this).closest('#PromoAlertsOptOutModal').removeClass('is-show');
+        });
+    },
+
+    bindAccountUpdatePreference: function () {
+        $(document).on('change', '#promoAlertNotificationsToggle', function (e) {
+            e.preventDefault();
+            const $this = $(this);
+            const activatePreference = $this.is(":checked");
+            if (activatePreference) {
+                $.ajax({
+                    type: 'POST',
+                    url: $this.data('postUrl'),
+                    data: {
+                        isPromoAlertNotificationsEnabled: true
+                    }
+                });
+                ACC.promoAlerts.activateAlert('optInAlert');
+            } else {
+
+                $("#PromoAlertsAccountOptOutModal").addClass("is-show");
+                $("body").prepend($("#PromoAlertsAccountOptOutModal"));
+            }
+        });
+    },
+
+    bindAccountOptOutModalActions: function () {
+        $(document).on('click', '#PromoAlertsAccountOptOutModal .js-promo-alert-opt-out', function (e) {
+            e.preventDefault();
+
+            const $button = $(this);
+            const $toggle = $('#promoAlertNotificationsToggle');
+            if ($toggle.length > 0) {
+                $.ajax({
+                    type: 'POST',
+                    url: $toggle.data('postUrl'),
+                    data: {
+                        isPromoAlertNotificationsEnabled: false
+                    },
+                    success: function () {
+                        $button.closest('#PromoAlertsAccountOptOutModal').removeClass('is-show');
+                        ACC.promoAlerts.activateAlert('optOutAlert');
+                    }
+                });
+            }
+        });
+
+        $(document).on('click', '#PromoAlertsAccountOptOutModal .js-promo-alert-opt-out-close', function (e) {
+            e.preventDefault();
+            $('#promoAlertNotificationsToggle').prop('checked', true);
+            $(this).closest('#PromoAlertsAccountOptOutModal').removeClass('is-show');
+        });
+    },
+
+    onLoginSuccess: function (data) {
+        let url = data.successCallback;
+        if (ACC.promoAlerts.currentStep === ACC.promoAlerts.steps['LinkEmailOtpStep'] && ACC.promoAlerts.emailToLink.length > 0) {
+            url = url + '?email=' + ACC.promoAlerts.emailToLink;
+        } else {
+            url = url + '?opt-in=' + ACC.promoAlerts.optInForEmailAlerts;
+        }
+
+        let response = null;
+        $.ajax({
+            type: 'GET',
+            url: url,
+            async: false,
+            success: function (html) {
+                response = html;
+            }
+        });
+
+        if (response) {
+            ACC.promoAlerts.replaceContent(response);
+
+            if ($(response).find('.js-header-enable-promo-alerts-input').is(':checked')) {
+                ACC.promoAlerts.activateAlert('optInAlert');
+            }
+
+            if ($(response).find('.js-header-promotion-alerts-content').length > 0) {
+                ACC.ajaxcomponent.loadHeaderPromotionalAlerts();
+            }
+        }
+    },
+
+    onLoginError: function (data) {
+        const errorData = {
+            errorMessage: data.errorMessage,
+            email: data.email,
+            mobileNumber: data.mobileNumber,
+            rememberMe: data.rememberMe
+        }
+
+        if (data.unlockDate) {
+            errorData['unlockDate'] = new Date(data.unlockDate);
+        }
+
+        let response = null;
+        $.ajax({
+            type: 'POST',
+            url: data.errorCallback,
+            data: errorData,
+            async: false,
+            success: function (html) {
+                response = html;
+            }
+        });
+
+        if (response) {
+            ACC.promoAlerts.replaceContent(response);
+        }
+    },
+
+    postFormUsingAjax: function (form, callBackFunction) {
+        const $formElement = $(form);
+        $(".js-promo-alerts-flyout-content .loading-background").show();
+        $.ajax({
+            type: $formElement.attr('method'),
+            url: $formElement.attr('action'),
+            data: $formElement.serialize(),
+            success: function (data) {
+                $(".js-promo-alerts-flyout-content .loading-background").hide();
+                callBackFunction(data);
+            }
+        });
+    },
+
+    getFragmentUsingAjax: function (url, replaceHtmlFunction) {
+        $(".js-promo-alerts-flyout-content .loading-background").show();
+        $.ajax({
+            type: 'GET',
+            url: url,
+            success: function (html) {
+                $(".js-promo-alerts-flyout-content .loading-background").hide();
+                replaceHtmlFunction(html);
+            }
+        });
+    },
+
+    updateCurrentStep: function (htmlResponse) {
+        const $html = $(htmlResponse);
+        if ($html.find('.js-current-step').length > 0) {
+            ACC.promoAlerts.currentStep = $html.find('.js-current-step').data('currentStep');
+        }
+    },
+
+    replaceContent: function (response) {
+        if ($(response).hasClass('js-promo-alerts-flyout-content')) {
+            $('.js-promo-alerts-flyout-content').replaceWith($(response));
+            ACC.promoAlerts.updateCurrentStep(response);
+            ACC.promoAlerts.bindValidateLoginForm();
+            ACC.promoAlerts.doInitialValidation();
+            ACC.global.loadActionsForm();
+            ACC.global.loadInputEffect();
+            ACC.global.loadRecaptchas();
+            ACC.global.jsCountdown();
+            ACC.login.countDownUnlockLogin();
+            ACC.otp.reloadOtpBindings();
+
+            if (ACC.promoAlerts.currentStep !== ACC.promoAlerts.steps['InitialStep']
+                || $('.js-promo-alerts-loggedIn-error').length > 0) {
+                ACC.promoAlerts.reloadPageOnFlyoutClosing = true;
+            } else {
+                ACC.promoAlerts.reloadPageOnFlyoutClosing = false;
+            }
+        }
+    },
+
+    activateAlert: function (alertType) {
+        let alertMessage;
+        let classAlertMessage;
+        let iconAlertMessage;
+        if (alertType === 'optInAlert') {
+            alertMessage = loc('promo.alerts.enabled.alert.message');
+            classAlertMessage = 'alert-rating--enabled';
+            iconAlertMessage = 'shoprite-icon-check';
+        } else if (alertType === 'optOutAlert') {
+            alertMessage = loc('promo.alerts.disabled.alert.message');
+            classAlertMessage = 'alert-rating--disabled';
+            iconAlertMessage = 'shoprite-icon-not-email';
+        }
+
+        if (alertMessage) {
+            const templateAlert = '<div class="alert-rating ' + classAlertMessage + '">' +
+                '<i class="icon ' + iconAlertMessage + '"></i>' +
+                '<span class="text">' + alertMessage + '</span>' +
+                '</div>';
+
+            const $alertWrapper = $('.js-promo-alerts-success-message');
+            $alertWrapper.append(templateAlert);
+
+            const $alert = $(".alert-rating");
+            setTimeout(function () {
+                $alert.addClass("is-hide");
+                setTimeout(function () {
+                    $alert.remove();
+                }, 500);
+            }, 2500);
+        }
+    },
+
+    changeViews: function () {
+        const $changeViews = $(".change-views");
+
+        $.each($changeViews, function (index, item) {
+            const $changeViewsButtons = $(item).find(".change-views__button");
+
+            $changeViewsButtons.on("click", function () {
+                $changeViewsButtons.removeClass("is-active");
+                const $this = $(this);
+                const viewSelected = $this.data("view");
+                $this.addClass("is-active");
+                const $promoAlertsSection = $(item).closest(".promo-alerts__section");
+
+                if (viewSelected === "grid") $promoAlertsSection.addClass("grid-view");
+                else $promoAlertsSection.removeClass("grid-view");
+            });
+        });
+    }
+}

@@ -1,0 +1,169 @@
+ACC.consent = {
+
+    _autoload: [
+        ["bindSendConsent", $("#consent-management-form").length != 0],
+        ["bindToggleConsentTemplateDescription", $("#consent-management-form").length != 0],
+        "bindConsentClick",
+        "bindConsentManagementAlertBar",
+    ],
+
+    bindSendConsent: function () {
+        const consentCheckbox = $('#consent-management-form').find('input.toggle-button__input');
+        consentCheckbox.removeAttr('disabled');
+
+        consentCheckbox.click(function () {
+            const $this = $(this);
+            const buttonId = ($this.is(':checked') ? '#give-consent-button-' : '#withdraw-consent-button-') + $this.prop('id');
+            const $consentBtn = $(document).find(buttonId);
+            $consentBtn.trigger('click');
+            consentCheckbox.attr('disabled', 'disabled');
+
+            $consentBtn.on('keydown', function (event) {
+                if (event.keyCode === 13 || event.keyCode === 32) {
+                    event.preventDefault();
+                    $consentBtn.trigger('click');
+                    consentCheckbox.attr('disabled', 'disabled');
+                }
+            });
+        });
+    },
+
+    bindToggleConsentTemplateDescription: function () {
+        const accordion = $('#consent-management-form').find('[data-behavior="accordion"]');
+        const expandedClass = 'is-expanded';
+
+        $.each(accordion, function () {
+            const accordionItems = $(this).find('[data-binding="expand-accordion-item"]');
+
+            $.each(accordionItems, function () {
+                const $this = $(this);
+                const triggerBtn = $this.find('[data-binding="expand-accordion-trigger"]');
+
+                const setHeight = function (nV) {
+                    const innerContent = nV.find('.consent-management-list__content-inner')[0];
+                    const maxHeight = $(innerContent).outerHeight();
+                    const content = nV.find('.consent-management-list__content')[0];
+
+                    if (!content.style.height || content.style.height === '0px') {
+                        $(content).css('height', maxHeight);
+                    } else {
+                        $(content).css('height', '0px');
+                    }
+                };
+
+                const toggleClasses = function (event) {
+                    const clickedItem = event.currentTarget;
+                    const currentItem = $(clickedItem).parent();
+                    const clickedContent = $(currentItem).find('.consent-management-list__content');
+                    $(currentItem).toggleClass(expandedClass);
+                    setHeight(currentItem);
+
+                    if ($(currentItem).hasClass('is-expanded')) {
+                        $(clickedItem).attr('aria-selected', 'true');
+                        $(clickedItem).attr('aria-expanded', 'true');
+                        $(clickedContent).attr('aria-hidden', 'false');
+
+                    } else {
+                        $(clickedItem).attr('aria-selected', 'false');
+                        $(clickedItem).attr('aria-expanded', 'false');
+                        $(clickedContent).attr('aria-hidden', 'true');
+                    }
+                };
+
+                triggerBtn.on('click', function (event) {
+                    event.preventDefault();
+                    toggleClasses(event);
+                });
+
+                // keyboard navigation
+                triggerBtn.on('keydown', function (event) {
+                    if (event.keyCode === 13 || event.keyCode === 32) {
+                        event.preventDefault();
+                        toggleClasses(event);
+                    }
+                });
+            });
+
+        });
+
+    },
+
+    bindConsentClick: function () {
+        $('.consent-accept').on("click", function () {
+            ACC.consent.changeConsentState(this, "GIVEN");
+        });
+        $('.consent-reject').on("click", function () {
+            ACC.consent.changeConsentState(this, "WITHDRAWN");
+        });
+    },
+
+    changeConsentState: function (element, consentState) {
+        const consentCode = ($(element).closest('.consentmanagement-bar').data('code'));
+        $.ajax({
+            url: ACC.config.encodedContextPath + "/anonymous-consent/" + encodeURIComponent(consentCode) + "?consentState=" + encodeURIComponent(consentState),
+            type: 'POST',
+            success: function () {
+                $(element).closest('.consentmanagement-bar').hide();
+            }
+        });
+    },
+
+    bindConsentManagementAlertBar: function () {
+        //accordion behaviour
+        const accordion = $('#consent-management-alert').find('[data-behavior="accordion"]');
+        const expandedClass = 'is-expanded';
+
+        $.each(accordion, function () {
+            const accordionItems = $(this).find('[data-binding="expand-accordion-item"]');
+
+            $.each(accordionItems, function () {
+                const $this = $(this);
+                const triggerBtn = $this.find('[data-binding="expand-accordion-trigger"]');
+
+                const setHeight = function (nV) {
+                    const innerContent = nV.find('.consent-management-list__content-inner')[0];
+                    const maxHeight = $(innerContent).outerHeight();
+                    const content = nV.find('.consent-management-list__content')[0];
+
+                    if (!content.style.height || content.style.height === '0px') {
+                        $(content).css('height', maxHeight);
+                    } else {
+                        $(content).css('height', '0px');
+                    }
+                };
+
+                const toggleClasses = function (event) {
+                    const clickedItem = event.currentTarget;
+                    const currentItem = $(clickedItem).parent();
+                    const clickedContent = $(currentItem).find('.consent-management-list__content');
+                    $(currentItem).toggleClass(expandedClass);
+                    setHeight(currentItem);
+
+                    if ($(currentItem).hasClass('is-expanded')) {
+                        $(clickedItem).attr('aria-selected', 'true');
+                        $(clickedItem).attr('aria-expanded', 'true');
+                        $(clickedContent).attr('aria-hidden', 'false');
+
+                    } else {
+                        $(clickedItem).attr('aria-selected', 'false');
+                        $(clickedItem).attr('aria-expanded', 'false');
+                        $(clickedContent).attr('aria-hidden', 'true');
+                    }
+                };
+
+                triggerBtn.on('click', function (event) {
+                    event.preventDefault();
+                    toggleClasses(event);
+                });
+
+                // keyboard navigation
+                triggerBtn.on('keydown', function (event) {
+                    if (event.keyCode === 13 || event.keyCode === 32) {
+                        event.preventDefault();
+                        toggleClasses(event);
+                    }
+                });
+            });
+        });
+    },
+};

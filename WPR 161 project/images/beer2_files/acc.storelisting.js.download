@@ -1,0 +1,312 @@
+ACC.storelisting = {
+
+    _autoload: [
+        ["bindInputAction", $("#storeListingQueryInput").length > 0],
+        ["bindListingNearMe", $("#storeListingNearMe").length > 0],
+        ["bindScrollLoadMore", $("#storeListingLoadMoreBtn").length > 0],
+        ["bindFilterAction", $("#listingFilterBtn").length > 0],
+        ["bindLoadInitialMap", $("#storeListingQueryInput").length > 0]
+    ],
+
+    xhr: null,
+    locations: [],
+    markers: [],
+    infiniteScroll: false,
+
+    bindInputAction: function () {
+        $(document).on("input", "#storeListingQueryInput", function () {
+            const $input = $(this);
+            const $parent = $input.parents('.js-store-search-filed');
+            const $clearInput = $parent.find('.js-store-listing-clear');
+
+            if ($input.val().length > 0) {
+                $clearInput.show();
+            } else {
+                $clearInput.hide();
+            }
+
+            ACC.storelisting.getFirstPageResults($input, true);
+        });
+
+        $(document).on("click", ".js-store-listing-clear", function (e) {
+            e.preventDefault();
+
+            const $input = $("#storeListingQueryInput");
+            $input.val("");
+
+            $(this).hide();
+            $(".js-load-more-btn-wrap .sl-container").show();
+            $(".js-store-totals-wrap").show();
+            $(".js-load-more-btn-wrap").show();
+
+            ACC.storelisting.getFirstPageResults($input, true);
+        });
+    },
+
+    bindListingNearMe: function () {
+        const permissionDeniedMessage = '<div class="centered"><div class="location-sharring-off-image"></div><p class="pt-2">Oh no, location sharing is turned off. Update your browser settings and refresh.</p></div>'
+
+        function showError(errMsg) {
+            $(window).scrollTop(0);
+            ACC.colorbox.open('', {
+                html: errMsg,
+                className: 'location-error-box',
+                inline: false,
+                width: 408,
+                close: '<span class="ASM_icon ASM_icon-close"></span>',
+                scrolling: false,
+                onOpen: function () {
+                    ACC.colorbox.resize();
+                },
+                onClosed: function () {
+                    $(window).off("resize", colorboxResize);
+                }
+            });
+        }
+
+        $(document).on("click", "#storeListingNearMe", function (e) {
+            e.preventDefault();
+            if (navigator.geolocation && !ACC.global.isGeolocationPermissionDenied()) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    ACC.global.setStoredGeolocation(position)
+                    ACC.storefinder.coords = position.coords;
+                    if (ACC.storefinder.coords.latitude !== undefined && ACC.storefinder.coords.longitude !== undefined) {
+                        const $input = $("#storeListingQueryInput");
+                        $input.val("");
+
+                        const url = "/" + $input.data("location") + "/stores/findMore";
+                        const data = ACC.storelisting.createData($input, 0);
+                        data.latitude = ACC.storefinder.coords.latitude;
+                        data.longitude = ACC.storefinder.coords.longitude;
+
+                        ACC.storelisting.xhr = ACC.storelisting.getStores(data, url, true);
+                    }
+                }, function (error) {
+                    let errMsg;
+                    if (error.code === error.PERMISSION_DENIED) {
+                        errMsg = permissionDeniedMessage
+                        ACC.global.storeGeolocationPermissionDenied(true)
+                    } else if (error.code === error.POSITION_UNAVAILABLE) {
+                        errMsg = 'Sorry, the position of the device could not be determined.';
+                    } else if (error.code === error.TIMEOUT) {
+                        errMsg = 'Sorry, the request to get user location timed out.';
+                    } else {
+                        errMsg = 'Sorry, the process failed to retrieve the location of the device due to an unknown error.';
+                    }
+                    showError(errMsg)
+                });
+            } else if (ACC.global.isGeolocationPermissionDenied()) {
+                showError(permissionDeniedMessage)
+            }
+        })
+    },
+
+    bindScrollLoadMore: function () {
+        ACC.storelisting.infiniteScroll = true;
+        const $scrollElements = $('.js-store-listing-wrap'),
+            $document = $(document);
+
+        function unbindScrollEvents() {
+            $document.off('resize scroll');
+            $scrollElements.off('resize scroll');
+        }
+
+        ACC.storelisting.unbindScrollEvents($scrollElements, $document);
+        $scrollElements.on("resize scroll", function () {
+            if ((this.scrollHeight - this.scrollTop) <= (this.offsetHeight + 300)) {
+                ACC.storelisting.unbindScrollEvents($scrollElements, $document);
+                ACC.storelisting.loadMoreStoresAction();
+            }
+        });
+
+        function checkIfLoadingIsOnScreen() {
+            const hasMaxHeightNone = $scrollElements.css('max-height') === 'none';
+            if (hasMaxHeightNone && ACC.global.isElementOnScreen($('.js-load-more-btn-wrap'))) {
+                ACC.storelisting.unbindScrollEvents($scrollElements, $document);
+                ACC.storelisting.loadMoreStoresAction();
+            }
+        }
+
+        $document.on("resize scroll", function () {
+            checkIfLoadingIsOnScreen();
+        });
+        checkIfLoadingIsOnScreen();
+    },
+
+    unbindScrollEvents: function ($scrollElements, $document) {
+        if (ACC.storelisting.infiniteScroll) {
+            $scrollElements = $scrollElements ? $scrollElements : $('.js-store-listing-wrap');
+            $document = $document ? $document : $(document);
+            $document.off('resize scroll');
+            $scrollElements.off('resize scroll');
+        }
+    },
+
+    loadMoreStoresAction: function () {
+        const $storeListingLoadMoreBtn = $('#storeListingLoadMoreBtn');
+        if ($storeListingLoadMoreBtn.length) {
+            const $input = $("#storeListingQueryInput");
+            const data = ACC.storelisting.createData($input, $storeListingLoadMoreBtn.data("nextPage"));
+
+            const url = "/" + $input.data("location") + "/stores/findMore";
+            ACC.storelisting.xhr = ACC.storelisting.getStores(data, url, false);
+        }
+    },
+
+    bindFilterAction: function () {
+        $(document).on("click", "#listingFilterBtn", function (e) {
+            e.preventDefault();
+
+            const $input = $("#storeListingQueryInput");
+            ACC.storelisting.getFirstPageResults($input, true);
+        });
+    },
+
+    bindLoadInitialMap: function () {
+        const $stores = $(".nav-store-your-results");
+        if ($stores.length > 0) {
+            $stores.each(function () {
+                ACC.storelisting.locations.push(ACC.storelisting.getStoreAsObject($(this)));
+            });
+            ACC.global.addGoogleMapsApi("ACC.storelisting.renderMap");
+        }
+    },
+
+    createData: function (input, page) {
+        const $input = $(input);
+        const filters = ACC.storefinder.getFiltersForInput($input);
+        return {
+            q: $input.val(),
+            page: page,
+            filters: filters.join(",")
+        };
+    },
+
+    getFirstPageResults: function (input, replaceCurrentResults) {
+        const $input = $(input);
+        const data = ACC.storelisting.createData($input, 0);
+        const url = "/" + $input.data("location") + "/stores/findMore";
+
+        ACC.storelisting.xhr = ACC.storelisting.getStores(data, url, replaceCurrentResults);
+    },
+
+    getStores: function (data, url, replace) {
+        if (ACC.storelisting.xhr) {
+            ACC.storelisting.xhr.abort();
+        }
+        ACC.storelisting.unbindScrollEvents();
+        return ACC.storefinder.getStores(data, url, "html", function (response) {
+            const $responseHtml = $(response);
+            $(".header-store-wrapper--mobile .js-store-search-filed").css("background-color", "#f5f5f5");
+
+            const $responseStores = $responseHtml.find(".nav-store-your-results"),
+                $loadMoreBtnWrap = $(".js-load-more-btn-wrap"),
+                $storeListingResults = $(".js-store-listing-results");
+            if ($responseStores.length > 0) {
+                $(".js-store-totals-wrap").show();
+                $loadMoreBtnWrap.show();
+                $(".js-store-listing-total").html($responseHtml.find(".js-store-listing-total").html());
+
+                if (replace === true) {
+                    ACC.storelisting.locations = [];
+                    $storeListingResults.empty();
+                    $(".js-store-listing-wrap").scrollTop(0);
+                    $storeListingResults.html($responseHtml.find(".nav-store-your-results"));
+                } else {
+                    $(".js-store-listing-results").append($responseStores);
+                }
+
+                $responseStores.each(function () {
+                    ACC.storelisting.locations.push(ACC.storelisting.getStoreAsObject($(this)));
+                });
+
+                const $loadMoreBtnFromResponse = $responseHtml.find(".js-load-more-btn-wrap");
+                const $currentLoadMoreBtnWrapper = $(".sl-container", $loadMoreBtnWrap);
+                if ($loadMoreBtnFromResponse.length > 0) {
+                    $currentLoadMoreBtnWrapper.html($loadMoreBtnFromResponse.html()).show();
+                    ACC.storelisting.bindScrollLoadMore();
+                } else {
+                    $currentLoadMoreBtnWrapper.hide();
+                }
+                ACC.storelisting.renderMap();
+            } else {
+                ACC.storelisting.locations = [];
+                $(".js-store-totals-wrap").hide();
+                $loadMoreBtnWrap.hide();
+                $storeListingResults.empty();
+                $storeListingResults.html($responseHtml.find(".no-store-found"));
+                ACC.storelisting.renderMap();
+            }
+        });
+    },
+
+    getStoreAsObject: function (storeHtml) {
+        const $store = $(storeHtml);
+        const storeObject = {};
+        storeObject.name = $store.data('storeDisplayname');
+        storeObject.latitude = $store.data('storeLatitude');
+        storeObject.longitude = $store.data('storeLongitude');
+        storeObject.hasPlaceInfo = $store.data('storeHasPlaceinfo')
+
+        if (storeObject.hasPlaceInfo) {
+            storeObject.image = $store.data('storeImage')
+            storeObject.rating = $store.data('storeRating') ? parseFloat($store.data('storeRating')) : 0
+            storeObject.isOpen = $store.data('storeIsOpen') ? $store.data('storeIsOpen') : false
+            storeObject.openUntil = $store.data('storeOpenUntil')
+            storeObject.votes = $store.data('storeVotes')
+            storeObject.category = $store.data('storeCategory')
+        }
+
+        return storeObject;
+    },
+
+    renderMap: function () {
+        if ($(".js-store-finder-map").length > 0) {
+            $(".js-store-finder-map").attr("id", "store-finder-map");
+
+            for (let i = 0; i < ACC.storelisting.markers.length; i++) {
+                ACC.storelisting.markers[i].setMap(null);
+            }
+            ACC.storelisting.markers = [];
+
+            const bounds = new google.maps.LatLngBounds();
+            for (let i = 0; i < ACC.storelisting.locations.length; i++) {
+                const location = ACC.storelisting.locations[i];
+                bounds.extend(new google.maps.LatLng(location.latitude, location.longitude));
+            }
+
+
+            const centerPoint = new google.maps.LatLng(ACC.storelisting.locations[0].latitude, ACC.storelisting.locations[0].longitude);
+            const mapOptions = {
+                zoom: 10,
+                disableDefaultUI: true,
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                center: bounds.getCenter()
+            };
+
+            const map = new google.maps.Map(document.getElementById("store-finder-map"), mapOptions);
+            for (let i = 0; i < ACC.storelisting.locations.length; i++) {
+                const location = ACC.storelisting.locations[i];
+                const marker = new google.maps.Marker({
+                    position: new google.maps.LatLng(location.latitude, location.longitude),
+                    map: map,
+                    icon: ACC.config.googleMapIconPath
+                })
+                if (location.hasPlaceInfo) {
+                    ACC.storefinder.attachInfoWindow(location, map, marker)
+                } else {
+                    marker.setTitle(location.name)
+                }
+
+                ACC.storelisting.markers.push(marker);
+            }
+
+            const zoomControlDiv = document.createElement('div');
+            zoomControlDiv.setAttribute("class", "zoom-controls");
+            const zoomControl = ACC.storefinderdetails.createCustomZoomMapControls(zoomControlDiv, map);
+            zoomControlDiv.index = 1;
+            map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(zoomControlDiv);
+        }
+    }
+
+}

@@ -1,0 +1,200 @@
+ACC.storefinderdetails = {
+
+    _autoload: [
+        ["initGoogleMap", $("#store-details-page").length > 0],
+        "bindMobileMap",
+        "contactStore",
+        "openingHours"
+    ],
+
+    latitude: "",
+    longitude: "",
+    directionsService: null,
+    directionsDisplay: null,
+
+    initGoogleMap: function () {
+        ACC.storefinderdetails.latitude = $("#geoPointLatitude").val();
+        ACC.storefinderdetails.longitude = $("#geoPointLongitude").val();
+        ACC.global.addGoogleMapsApi("ACC.storefinderdetails.loadStoreGoogleMap");
+    },
+
+    loadStoreGoogleMap: function () {
+        const $storeDetailsMap = $("#store-details-map");
+        if ($storeDetailsMap.length > 0) {
+            ACC.storefinderdetails.directionsService = new google.maps.DirectionsService;
+            ACC.storefinderdetails.directionsDisplay = new google.maps.DirectionsRenderer;
+
+            const centerPoint = new google.maps.LatLng(ACC.storefinderdetails.latitude, ACC.storefinderdetails.longitude);
+
+            const mapOptions = {
+                zoom: 13,
+                disableDefaultUI: true,
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                center: centerPoint
+            };
+
+            const map = new google.maps.Map(document.getElementById("store-details-map"), mapOptions);
+            ACC.storefinderdetails.directionsDisplay.setMap(map);
+
+            const marker = new google.maps.Marker({
+                position: new google.maps.LatLng(ACC.storefinderdetails.latitude, ACC.storefinderdetails.longitude),
+                map: map,
+                icon: ACC.config.googleMapIconPath
+            });
+
+            const zoomControlDiv = document.createElement('div');
+            zoomControlDiv.setAttribute("class", "zoom-controls");
+            const zoomControl = ACC.storefinderdetails.createCustomZoomMapControls(zoomControlDiv, map);
+            zoomControlDiv.index = 1;
+            map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(zoomControlDiv);
+
+            if (ACC.config.googleLoadDirections) {
+                ACC.storefinderdetails.getDirections(ACC.storefinderdetails.directionsService, ACC.storefinderdetails.directionsDisplay, ACC.storefinderdetails.latitude, ACC.storefinderdetails.longitude);
+            }
+        }
+    },
+
+    bindMobileMap: function () {
+        $("#js-map-button").click(function () {
+            $("#caret1").toggleClass("glyphicon-chevron-up").toggleClass("glyphicon-chevron-down");
+        })
+    },
+
+    contactStore: function () {
+        $('.js-contact-store-btn').on("click", function () {
+            var phoneNumber = "tel://" + $("#store-phone-number").text();
+            window.open(phoneNumber);
+        });
+    },
+
+    getDirections: function (directionsService, directionsDisplay, storeLat, storeLng) {
+        ACC.storefinder.initLocation();
+
+        const storeLocation = new google.maps.LatLng(storeLat, storeLng);
+        const userLocation = new google.maps.LatLng(ACC.storefinder.coords.latitude, ACC.storefinder.coords.longitude);
+
+        const request = {
+            origin: userLocation,
+            destination: storeLocation,
+            travelMode: 'DRIVING'
+        };
+
+        directionsService.route(request, function (result, status) {
+            if (status === "OK") {
+                directionsDisplay.setDirections(result);
+            }
+        });
+    },
+
+    calcDistance: function () {
+        const permissionDeniedMessage = '<div class="centered"><div class="location-sharring-off-image"></div><p class="pt-2">Oh no, location sharing is turned off. Update your browser settings and refresh.</p></div>';
+
+        function showError(errMsg) {
+            $(window).scrollTop(0);
+            ACC.colorbox.open('', {
+                html: errMsg,
+                className: 'location-error-box',
+                inline: false,
+                width: 408,
+                close: '<span class="ASM_icon ASM_icon-close"></span>',
+                scrolling: false,
+                onOpen: function () {
+                    ACC.colorbox.resize();
+                },
+                onClosed: function () {
+                    $(window).off("resize", colorboxResize);
+                }
+            });
+        }
+
+
+        if (navigator.geolocation && !ACC.global.isGeolocationPermissionDenied()) {
+            navigator.geolocation.getCurrentPosition(function (position) {
+                    ACC.global.setStoredGeolocation(position)
+                    const userLocation = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                    const storeLocation = new google.maps.LatLng(ACC.storefinderdetails.latitude, ACC.storefinderdetails.longitude);
+
+                    const service = new google.maps.DistanceMatrixService();
+                    service.getDistanceMatrix(
+                        {
+                            origins: [userLocation],
+                            destinations: [storeLocation],
+                            travelMode: google.maps.TravelMode.DRIVING,
+                            unitSystem: google.maps.UnitSystem.METRIC
+                        }, function () {
+                            if (status === "OK") {
+                                $(".store-distance").text(response.rows[0].elements[0].distance.text).show();
+                            }
+                        });
+                },
+                function (error) {
+                    let errMsg;
+                    if (error.code === error.PERMISSION_DENIED) {
+                        ACC.global.storeGeolocationPermissionDenied(true)
+                        errMsg = permissionDeniedMessage
+                    } else if (error.code === error.POSITION_UNAVAILABLE) {
+                        errMsg = 'Sorry, the position of the device could not be determined.';
+                    } else if (error.code === error.TIMEOUT) {
+                        errMsg = 'Sorry, the request to get user location timed out.';
+                    } else {
+                        errMsg = 'Sorry, the process failed to retrieve the location of the device due to an unknown error.';
+                    }
+
+                    showError(errMsg)
+                }
+            );
+        } else if (ACC.global.isGeolocationPermissionDenied()) {
+            showError(permissionDeniedMessage)
+        }
+    },
+
+    openingHours: function () {
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const now = new Date();
+        const today = now.getDay();
+
+        $(".trading-hours-" + days[today]).addClass("today-hours");
+    },
+
+    createCustomZoomMapControls: function (controlDiv, map) {
+        const controlWrapper = document.createElement('div');
+        controlWrapper.setAttribute("class", "controls-wrapper");
+        controlDiv.appendChild(controlWrapper);
+
+        const zoomInButton = document.createElement('div');
+        zoomInButton.setAttribute("class", "zoom-in");
+        controlWrapper.appendChild(zoomInButton);
+
+        const zoomOutButton = document.createElement('div');
+        zoomOutButton.setAttribute("class", "zoom-out");
+        controlWrapper.appendChild(zoomOutButton);
+
+        google.maps.event.addDomListener(zoomInButton, 'click', function () {
+            map.setZoom(map.getZoom() + 1);
+        });
+
+        google.maps.event.addDomListener(zoomOutButton, 'click', function () {
+            map.setZoom(map.getZoom() - 1);
+        });
+
+        if(navigator.geolocation && !ACC.global.isGeolocationPermissionDenied()) {
+            function handlePosition(position) {
+                ACC.global.setStoredGeolocation(position)
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+                if(latitude && longitude) {
+                    const latLon = new google.maps.LatLng(latitude, longitude);
+                    const centerButton = document.createElement('div');
+                    centerButton.setAttribute("class", "zoom-center");
+                    controlWrapper.prepend(centerButton);
+                    google.maps.event.addDomListener(centerButton, 'click', function () {
+                        map.panTo(latLon);
+                    });
+                }
+            }
+            navigator.geolocation.getCurrentPosition(handlePosition, error => {
+                if (error.code === error.PERMISSION_DENIED) { ACC.global.storeGeolocationPermissionDenied(true) }
+            });
+        }
+    }
+};

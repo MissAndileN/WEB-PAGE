@@ -1,0 +1,39 @@
+ACC.close = {
+    _autoload: [
+        ["bindCloseAccountModalButtons", $(".js-close-account-popup-button").length != 0],
+        ["bindCloseAccountButton", $(".js-close-account-popup-button").length != 0]
+    ],
+
+    bindCloseAccountModalButtons: function () {
+        $('.js-close-account-popup-button').click(function (event) {
+            event.preventDefault();
+            ACC.colorbox.open(ACC.common.encodeHtml($('.js-close-account-popup-button').data("popupTitle")), {
+                inline: true,
+                href: "#popup_confirm_account_removal",
+                className: "js-close-account-popup",
+                width: '500px',
+                onComplete: function () {
+                    $(this).colorbox.resize();
+                }
+            })
+        });
+    },
+
+    bindCloseAccountButton: function () {
+        $(document).on("click", '.js-close-account-action', function (event) {
+            event.preventDefault();
+            $.ajax({
+                url: ACC.config.encodedContextPath + '/my-account/close-account',
+                type: 'POST',
+                success: function () {
+                    ACC.colorbox.close();
+                    window.location.replace(ACC.config.encodedContextPath + '/logout?closeAcc=true');
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.log("Failed to close account. Error: [" + errorThrown + "]");
+                    window.location.reload();
+                }
+            });
+        });
+    }
+};

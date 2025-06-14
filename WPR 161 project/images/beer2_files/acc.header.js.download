@@ -1,0 +1,293 @@
+ACC.header = {
+
+    _autoload: [
+        ["searchBoxPosition", $(".search-component").length > 0],
+        "bindToggleMiniLogin",
+        ["stickyHeader", $(".js-mainHeader").length > 0],
+        ["showSearchDepartments", $(".search-component").length > 0],
+        ["searchCleanButton", $(".search-component").length > 0],
+        "footerMobileDocking",
+        ["searchBoxPlaceholder", $("#js-site-search-input").length],
+        "profileMenuTablet",
+        "allSpecialMenu"
+    ],
+
+    stickyHeader: function () {
+        const body = $("body");
+        const jsMainHeader = $(".js-mainHeader");
+        let header = jsMainHeader.find(".header__bottom");
+        let sticky = header.offset().top;
+        let lastScrollTop = 0;
+        let stickyState = 0;
+
+        enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenXsMax) + ")", {
+            match: function () {
+                resetSticky();
+                header = jsMainHeader.find(".header__top");
+                sticky = header.offset().top;
+            },
+            unmatch: function () {
+                resetSticky();
+                header = jsMainHeader.find(".header__bottom");
+                sticky = header.offset().top;
+            }
+        });
+
+        function checkScroll(paramSticky) {
+            let st = window.pageYOffset || document.documentElement.scrollTop;
+            if (st > paramSticky) {
+                if (stickyState === 0) {
+                    body.css("padding-top", (jsMainHeader.outerHeight()) + "px");
+                    stickyState = 1;
+                }
+                if (st > lastScrollTop) {
+                    if (jsMainHeader.hasClass("sticky")) jsMainHeader.removeClass("sticky--scroll-up").addClass("sticky--scroll-down");
+                } else {
+                    jsMainHeader.addClass("sticky--scroll-up");
+                }
+                jsMainHeader.addClass("sticky");
+                //if (window.innerWidth > parseInt(screenXsMax)) $('.header .js-store-search-filed').hide();
+            } else {
+                if (st === 0) {
+                    jsMainHeader.removeClass("sticky sticky--scroll-down sticky--scroll-up");
+                    if (stickyState === 1) {
+                        body.css("padding-top", "0");
+                        stickyState = 0;
+                    }
+                }
+            }
+            lastScrollTop = st <= 0 ? 0 : st;
+        }
+
+        function resetSticky() {
+            jsMainHeader.removeClass("sticky sticky--scroll-down sticky--scroll-up");
+            body.css("padding-top", "0");
+        }
+
+        window.onscroll = function () {
+            checkScroll(sticky);
+        };
+    },
+
+    searchBoxPosition: function () {
+        enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenXsMax) + ")", {
+            match: function () {
+                $(".search-component").appendTo(".header__search--mobile");
+
+                $(".js-show-search").on("click", function (e) {
+                    $(".header").addClass("is-searching");
+                });
+            },
+
+            unmatch: function () {
+                $(".search-component").appendTo(".header__search--desktop");
+            }
+        });
+    },
+
+    searchBoxPlaceholder: function () {
+        const $jsSiteSearchInput = $("#js-site-search-input");
+        enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenSmMax) + ")", {
+            match: function () {
+                $jsSiteSearchInput.attr("placeholder", loc("search.placeholder.mobile"));
+            },
+
+            unmatch: function () {
+                $jsSiteSearchInput.attr("placeholder", loc("search.placeholder"));
+            }
+        });
+    },
+
+    showSearchDepartments: function () {
+        const $searchComponent = $(".search-component");
+        const $searchComponentInputDepartment = $searchComponent.find("#department-selection");
+
+        const $searchComponentDepartment = $searchComponent.find(".department");
+        const $searchComponentDepartmentBtn = $searchComponentDepartment.find(".department__btn");
+        const $searchComponentDepartmentSelection = $searchComponentDepartment.find(".department__selection");
+
+        const $searchComponentDepartments = $searchComponent.find(".departments");
+        const $searchComponentDepartmentsList = $searchComponentDepartments.find(".departments__list");
+        const $searchComponentDepartmentsItem = $searchComponentDepartmentsList.find(".departments__item");
+
+        $searchComponentDepartmentBtn.on("click", function () {
+            $searchComponent.toggleClass("show-departments");
+        });
+
+        $searchComponentDepartmentsItem.on("click", function (e) {
+            e.preventDefault();
+            const $this = $(this);
+            $searchComponentDepartmentSelection.html($this.text());
+            $searchComponentInputDepartment.val($this.data("categoryCode"));
+            $searchComponent.removeClass("show-departments");
+            $searchComponentDepartmentsItem.removeClass("is-active");
+            $this.addClass("is-active");
+            $("#js-site-search-input").attr("data-category-selected", $this.data("categoryCode"));
+        });
+
+        $(window).on("click", function (e) {
+            if ($searchComponent.length && !$.contains($searchComponent[0], e.target)) {
+                $(".header").removeClass("is-searching");
+                $searchComponent.removeClass("show-departments");
+            }
+        });
+    },
+
+    searchCleanButton: function () {
+        const $searchComponent = $(".search-component");
+        const $searchInput = $searchComponent.find(".js-site-search-input");
+        const $searchComponentBtnClean = $searchComponent.find(".search-component__btn-clean");
+        const $searchComponentOverlay = $searchComponent.find(".search-component__resultsComp");
+
+        $searchInput.on("input", function () {
+            if ($(this).val() !== "") {
+                $searchComponent.addClass("is-writing");
+            } else {
+                $searchComponent.removeClass("is-writing");
+            }
+        });
+
+        $searchComponentBtnClean.on("click", function () {
+            $searchComponent.removeClass("is-writing");
+            $searchInput.val("").focus();
+        });
+
+        $searchComponentOverlay.on("click", function () {
+            $searchComponent.removeClass("is-writing");
+            $searchComponent.removeClass("overlay-search");
+            $searchInput.val("").focus();
+        });
+    },
+
+    bindToggleMiniLogin: function () {
+        const focusElement = function () {
+            const loginForm = $("#loginForm");
+            const jUsername = loginForm.find("#j_username");
+            const jPassword = loginForm.find("#j_password");
+            const firstOtp = $("#shrOneTimePinForm").find("#otp_1");
+             if (jUsername.length > 0 && jUsername.is(":visible")) {
+              jUsername.focus();
+            } else if(jPassword.length > 0 && jPassword.is(":visible")) {
+              jPassword.focus();
+            } else if(firstOtp.length > 0 && firstOtp.is(":visible")) {
+                firstOtp.focus();
+            }
+        }
+        $('.js-mini-login-toggle').on("click touch tap", function () {
+            if(window.innerWidth <= 1024) {
+                $('.profile__menu-container').addClass('right');
+                $('.overlay-mini-login').show();
+                focusElement();
+            } else {
+                $('.profile').find('.shoprite-icon-dropdown-arrow').toggleClass('rotate-dropdown-arrow')
+                $('.profile__menu-container').toggleClass('mini-login-visible')
+                if($('.profile__menu-container').hasClass('mini-login-visible')) {
+                   focusElement();
+                }
+            }
+        });
+        $('.js-close').on("click touch tap", function (e) {
+            e.preventDefault();
+            $('.profile__menu-container').removeClass('right');
+            $('.overlay-mini-login').hide();
+        });
+    },
+
+    profileMenuTablet: function () {
+        if (ACC.shopriteutils.isMobileOrTabletBrowser()) {
+            const $headerAccountProfile = $(".header__account .profile");
+            $headerAccountProfile.on("click touch", function () {
+                $headerAccountProfile.toggleClass("is-show");
+            });
+
+            const $miniLoginToggle = $(".js-mini-login-toggle");
+            $miniLoginToggle.on("click touch", function () {
+                const $miniLogin = $(".mini-login");
+                //const $miniLoginParent = $miniLogin.parent();
+                const $profileMenu = $('.profile__menu');
+                const $loginRegisterDropdownArrowIcon = $(".login-register .shoprite-icon-dropdown-arrow");
+
+                if ($miniLogin.hasClass("js-mini-login-tablet-open")) {
+                    $miniLogin.removeClass("js-mini-login-tablet-open");
+                    $miniLogin.addClass("js-mini-login-tablet-closed");
+                    $loginRegisterDropdownArrowIcon.removeClass("rotate-dropdown-arrow");
+                    $profileMenu.removeClass("is-show");
+                } else if ($miniLogin.hasClass("js-mini-login-tablet-closed")) {
+                    $miniLogin.addClass("js-mini-login-tablet-open");
+                    $miniLogin.removeClass("js-mini-login-tablet-closed");
+                    $loginRegisterDropdownArrowIcon.addClass("rotate-dropdown-arrow");
+                    $profileMenu.addClass("is-show");
+                }
+            });
+        }
+    },
+
+    footerMobileDocking: function () {
+        enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenXsMax) + ")", {
+            setup: function () {
+                const $input = $("input");
+                const $textarea = $('textarea');
+                const $headerBottomMob = $(".header-bottom-mob");
+
+                $input.css("pointer-events", "auto");
+
+                $input.focus(function () {
+                    if (!$(this).closest(".promo-alerts").length) {
+                        $headerBottomMob.css("display", "none");
+                        $("main").addClass("no-padding");
+                    }
+                });
+                $input.blur(function () {
+                    if (!$(this).closest(".promo-alerts").length) {
+                        $headerBottomMob.css("display", "flex");
+                        $("main").removeClass("no-padding");
+                    }
+                });
+
+                $textarea.focus(function () {
+                    if (!$(this).closest(".promo-alerts").length) {
+                        $headerBottomMob.css("display", "none");
+                        $("main").addClass("no-padding");
+                    }
+                });
+
+                $textarea.blur(function () {
+                    if (!$(this).closest(".promo-alerts").length) {
+                        $headerBottomMob.css("display", "flex");
+                        $("main").removeClass("no-padding");
+                    }
+                });
+            },
+            match: function () {
+                $(".js-toggle-store-finder").addClass("is-mobile");
+                if (!ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                    hideStoreSearch();
+                }
+            },
+            unmatch: function () {
+                $('main').css("padding-bottom", "0px");
+                $(".js-toggle-store-finder").removeClass("is-mobile");
+                if (!ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                    hideStoreSearch();
+                }
+            }
+        });
+
+        function hideStoreSearch() {
+            $('.js-toggle-store-finder').toggleClass("is-show");
+            $(".js-store-finder-overlay").hide();
+            $('body').removeClass('prevent-scroll-mobile');
+            $(".header__your-store .header__your-store__select-icon").removeClass("rotate-dropdown-arrow");
+        }
+    },
+
+    allSpecialMenu: function () {
+        const $allSpecialsMobileNavNodeEntry = $("#AllSpecialsMobileNavNodeEntry");
+        const $allSpecialsMobileNavNodeEntryLink = $allSpecialsMobileNavNodeEntry.find("a");
+        const $AllSpecialsNavNodeEntry = $("#AllSpecialsNavNodeEntry");
+        const $AllSpecialsNavNodeEntryLink = $AllSpecialsNavNodeEntry.find("a");
+
+        if ($allSpecialsMobileNavNodeEntry.length) $allSpecialsMobileNavNodeEntryLink.html("<span>" + $allSpecialsMobileNavNodeEntryLink.text() + "</span>");
+        if ($AllSpecialsNavNodeEntry.length) $AllSpecialsNavNodeEntryLink.html("<span>" + $AllSpecialsNavNodeEntryLink.text() + "</span>");
+    }
+};

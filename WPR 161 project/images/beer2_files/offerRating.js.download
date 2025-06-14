@@ -1,0 +1,91 @@
+ACC.offerRating = {
+    _autoload: [
+        "bindLikeOffer",
+        "bindDislikeOffer"
+    ],
+
+    bindLikeOffer: function () {
+        $(document).on("click", ".js-like-button", function (e) {
+            var $this = $(this);
+            let $input = $this.prev();
+            const $parent = $input.closest(".js-offer-rating");
+            const offerId = $parent.data("offerId");
+            const baseUrl = $parent.data("baseUrl");
+
+            if ($input.is(":checked")) {
+                e.preventDefault();
+                ACC.offerRating.postInteraction(baseUrl, offerId, "remove");
+                $input.prop("checked", false);
+                $input.removeAttr("checked");
+                $this.addClass("was-selected");
+
+                $this.on("mouseout", function () {
+                    $this.removeClass("was-selected");
+                    $this.off("mouseout");
+                });
+            } else {
+                $("input[name='ratingDislike" + offerId + "']").prop("checked", false);
+                $input.attr("checked", true);
+                ACC.offerRating.postInteraction(baseUrl, offerId, "like");
+                ACC.offerRating.showAlertLikeDislike("like");
+            }
+        });
+    },
+
+    bindDislikeOffer: function () {
+        $(document).on("click", ".js-dislike-button", function (e) {
+            var $this = $(this);
+            let $input = $this.prev();
+            const $parent = $input.closest(".js-offer-rating");
+            const offerId = $parent.data("offerId");
+            const baseUrl = $parent.data("baseUrl");
+
+            if ($input.is(":checked")) {
+                e.preventDefault();
+                $input.prop("checked", false);
+                $input.removeAttr("checked");
+                ACC.offerRating.postInteraction(baseUrl, offerId, "remove");
+                $this.addClass("was-selected");
+
+                $this.on("mouseout", function () {
+                    $this.removeClass("was-selected");
+                    $this.off("mouseout");
+                });
+            } else {
+                $("input[name='ratingLike" + offerId + "']").prop("checked", false);
+                $input.attr("checked", true);
+                ACC.offerRating.postInteraction(baseUrl, offerId, "dislike");
+                ACC.offerRating.showAlertLikeDislike("dislike");
+            }
+        });
+    },
+
+    showAlertLikeDislike: function (action) {
+        var $alertRating = $(".alert-rating");
+        if ($alertRating.length) $alertRating.remove();
+        var alertMessage = action === "like" ? loc("rating.like.alert") : action === "dislike" ? loc("rating.dislike.alert") : "";
+        var templateAlert = '<div class="alert-rating">' +
+            '<i class="icon shoprite-icon-xtra-savings"></i>' +
+            '<span class="text">' + alertMessage + '</span>' +
+            '</div>';
+        $("body").append(templateAlert);
+        $alertRating = $(".alert-rating");
+        setTimeout(function () {
+            $alertRating.addClass("is-hide");
+            setTimeout(function () {
+                $alertRating.remove();
+            }, 500);
+        }, 2500);
+    },
+
+    postInteraction: function (baseUrl, offerId, action) {
+        $.ajax({
+            type: "POST",
+            url: baseUrl + "/action/" + action,
+            data: {offerId: offerId},
+            error: function () {
+                console.error("An error occurred when registering rating action '" + action + "' for offer id " + offerId);
+            }
+        });
+    }
+};

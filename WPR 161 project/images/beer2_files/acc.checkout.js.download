@@ -1,0 +1,100 @@
+ACC.checkout = {
+
+    _autoload: [
+        "bindCheckO",
+        "bindForms",
+        "bindSavedPayments"
+    ],
+
+    bindForms: function () {
+        $(document).on("click", "#addressSubmit", function (e) {
+            e.preventDefault();
+            $('#addressForm').submit();
+        });
+
+        $(document).on("click", "#deliveryMethodSubmit", function (e) {
+            e.preventDefault();
+            $('#selectDeliveryMethodForm').submit();
+        });
+    },
+
+    bindSavedPayments: function () {
+        $(document).on("click", ".js-saved-payments", function (e) {
+            e.preventDefault();
+
+            $.colorbox({
+                href: "#savedpaymentsbody",
+                inline: true,
+                maxWidth: "100%",
+                opacity: 0.7,
+                //width:"320px",
+                title: $("#savedpaymentstitle").html(),
+                close: '<span class="glyphicon glyphicon-remove"></span>',
+                onComplete: function () {
+                }
+            });
+        })
+    },
+
+    bindCheckO: function () {
+        let cartEntriesError = false;
+
+        // Alternative checkout flows options
+        $('.doFlowSelectedChange').change(function () {
+            if ('multistep-pci' === $('#selectAltCheckoutFlow').val()) {
+                $('#selectPciOption').show();
+            } else {
+                $('#selectPciOption').hide();
+            }
+        });
+
+
+        $('.js-continue-shopping-button').click(function () {
+            window.location = $(this).data("continueShoppingUrl");
+        });
+
+        $('.js-create-quote-button').click(function () {
+            $(this).prop("disabled", true);
+            window.location = $(this).data("createQuoteUrl");
+        });
+
+
+        $('.expressCheckoutButton').click(function () {
+            document.getElementById("expressCheckoutCheckbox").checked = true;
+        });
+
+        $(document).on("input", ".confirmGuestEmail,.guestEmail", function () {
+            if ($(".guestEmail").val() === $(".confirmGuestEmail").val()) {
+                $(".guestCheckoutBtn").removeAttr("disabled");
+            } else {
+                $(".guestCheckoutBtn").attr("disabled", "disabled");
+            }
+        });
+
+        $('.js-continue-checkout-button').click(function () {
+            const checkoutUrl = $(this).data("checkoutUrl");
+
+            cartEntriesError = ACC.pickupinstore.validatePickupinStoreCartEntires();
+            if (!cartEntriesError) {
+                const expressCheckoutObject = $('.express-checkout-checkbox');
+                if (expressCheckoutObject.is(":checked")) {
+                    window.location = expressCheckoutObject.data("expressCheckoutUrl");
+                } else {
+                    let flow = $('#selectAltCheckoutFlow').val();
+                    if (flow === undefined || flow === '' || flow === 'select-checkout') {
+                        // No alternate flow specified, fallback to default behaviour
+                        window.location = checkoutUrl;
+                    } else {
+                        // Fix multistep-pci flow
+                        if ('multistep-pci' === flow) {
+                            flow = 'multistep';
+                        }
+                        // Build up the redirect URL
+                        window.location = checkoutUrl + '/select-flow?flow=' + flow + '&pci=' + $('#selectPciOption').val();
+                    }
+                }
+            }
+            return false;
+        });
+    }
+};

@@ -1,0 +1,190 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+   
+  body {
+    font-family: Arial, sans-serif;
+    background-color: darkgray;
+    background-image: url(images/background\ img.gif);
+  }
+   
+  header {
+    background-color: #ffcc00;
+    padding: 20px;
+    text-align: center;
+  }
+   
+  nav ul {
+    list-style-type: square;
+  }
+   
+  nav ul li {
+    display: inline;
+    margin-right: 20px;
+  }
+   
+  nav ul li a {
+    text-decoration: none;
+    color: #333;
+  }
+   
+  main {
+    padding: 20px;
+  }
+   
+  section {
+    margin-bottom: 20px;
+  }
+   
+  h2 {
+    color: #333;
+  }
+   
+  article {
+    margin-bottom: 10px;
+  }
+   
+  img {
+    max-width: auto;
+    height: 200px;
+  }
+   
+  footer {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 10px 0;
+  }
+   
+  .social-media {
+    margin-top: 20px;
+  }
+   
+  .social-media a {
+    margin-right: 10px;
+  }
+   
+  .social-media img {
+    width: 40px;
+    height: 40px;
+  }
+  ul {
+    list-style: square;
+  }
+  #about {
+    text-align: center;
+  }
+  #menu{
+    text-align: center;
+    
+  }
+  #enquiry {
+    margin-top: 20px;
+  }
+   
+  #enquiry h2 {
+    text-align: center;
+  }
+   
+  #enquiry form {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+   
+  #enquiry form label {
+    display: block;
+    margin-bottom: 5px;
+  }
+   
+  #enquiry form input[type="text"],
+  #enquiry form input[type="email"],
+  #enquiry form input[type="tel"],
+  #enquiry form textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+   
+  #enquiry form textarea {
+    resize: vertical;
+  }
+   
+  #enquiry form input[type="submit"] {
+    width: 100%;
+    background-color: #ffcc00;
+    color: #333;
+    border: none;
+    padding: 10px 0;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+  }
+   
+  #enquiry form input[type="submit"]:hover {
+    background-color: #ffd633;
+  }
+  #location{
+    text-align: center;
+  }
+  .main{
+    text-align: center;
+   
+  }
+  *{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    text-decoration: none;
+    text-transform: none;
+    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    transition: all 0.2s linear;
+}
+body{
+    background: #eee;
+}
+.container{
+    width: 90%;
+    margin: 0 auto;
+   
+}
+.container .headeing{
+    font-size: 3.2rem;
+    color: #333;
+    margin-bottom: 3rem;
+    text-align: center;
+}
+.container .menu-container{
+    display:grid;
+    grid-template-columns: repeat(auto-fit,minmax(30%, 1fr));
+    gap: 1rem;
+    margin-bottom: 3rem;
+}
+.container .menu-container .menu{
+    text-align: center;
+    padding: 0.5rem;
+    background: #fff;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    outline: 0.1rem solid #ccc;
+    outline-offset: -0.7rem;
+}
+.container .menu-container .menu:hover{
+    outline-offset: 0;
+    outline: 0.1rem solid #000;
+ 
+}
+.container .menu-container .menu img{
+    width: 100%;
+}
+.container .menu-container .menu img:hover{
+    transform: scale(.9);
+}.container .menu-container .menu h3,
+.container .menu-container .menu .price{
+    font-size: 1.5rem;
+    color: #333;
+}

@@ -1,0 +1,604 @@
+ACC.wishlistLittleMe = {
+    _autoload: [
+        ['bindSelectItem', $('.js-item-check').length],
+        ['bindSelectAllItems', $('.js-select-all-items-wishlist').length],
+        ["bindAddProductUnit", $(".js-add-product-unit").length],
+        ["bindSubtractProductUnit", $(".js-subtract-product-unit").length],
+        ["bindRemoveProduct", $(".js-remove-selected-items-wishlist").length],
+        ['bindLittleMeDropdownMenu', $('.little-me__menu').length],
+        ['bindLoadWishlistDetail', $('.js-wishlist-detail').length],
+        ['bindAddProductToWishlist', $('.js-wishlist-add-action').length],
+        ['bindCreateWishlistButton', $('.js-wishlist-create-button').length],
+        ["bannersCarousel", $(".squared-multi-banner--carousel").length],
+        ["fullyHideHeader", $(".js-littleme-hidden-header").length],
+        ["downloadBabyWishlist", $(".js-download-baby-wishlist").length],
+        ["bindShareMyWishlist", $(".share-my-wishlist").length],
+    ],
+
+    bindSelectItem: function () {
+        $(document).on("change", ".js-item-check", function () {
+            const $this = $(this);
+            const $removeBtn = $this.closest(".js-items-section").find(".js-remove-selected-items-wishlist");
+            const $items = $this.closest(".js-items-section").find(".js-item-check");
+
+            const selectedItemCount = ACC.wishlistLittleMe.getSelectedItems($items).length;
+            const itemsCount = $items.length;
+
+            ACC.wishlistLittleMe.refreshRemoveButton($removeBtn, selectedItemCount <= 0, selectedItemCount);
+            ACC.wishlistLittleMe.setSelectBtnMode(selectedItemCount, itemsCount);
+        });
+    },
+
+    bindSelectAllItems: function () {
+        $(document).on("click", ".js-select-all-items-wishlist", function () {
+            const $this = $(this);
+            const $removeBtn = $this.closest(".js-items-section").find(".js-remove-selected-items-wishlist");
+            const $items = $this.closest(".js-items-section").find(".js-item-check");
+
+            if ($items.length) {
+                if ($this.attr("data-select-item") === "true") {
+                    ACC.wishlistLittleMe.selectAllItems($items, $removeBtn);
+                } else {
+                    ACC.wishlistLittleMe.unSelectAllItems($items, $removeBtn);
+                }
+            }
+        });
+    },
+
+    selectAllItems: function ($items, $removeBtn) {
+        $items.each(function () {
+            const $item = $(this);
+            if (!$item.is(":checked")) {
+                $item.prop("checked", true);
+            }
+        });
+        ACC.wishlistLittleMe.refreshRemoveButton($removeBtn, false, $items.length);
+        ACC.wishlistLittleMe.setUnSelectMode();
+    },
+
+    unSelectAllItems: function ($items, $removeBtn) {
+        $items.each(function () {
+            const $item = $(this);
+            if ($item.is(":checked")) {
+                $item.prop("checked", false);
+            }
+        });
+        ACC.wishlistLittleMe.refreshRemoveButton($removeBtn, true, 0);
+        ACC.wishlistLittleMe.setSelectMode();
+    },
+
+    getSelectedItems: function ($items) {
+        const $selectedItems = [];
+        $items.each(function () {
+            const $item = $(this);
+            if ($item.is(":checked")) {
+                $selectedItems.push($item);
+            }
+        });
+
+        return $selectedItems;
+    },
+
+    refreshRemoveButton: function ($removeBtn, isEmpty, selectedItemCount) {
+        if (isEmpty) {
+            $removeBtn.removeClass("selected");
+            $removeBtn.find(".js-remove-selected-items-wishlist-count").text('');
+        } else {
+            $removeBtn.addClass("selected");
+            $removeBtn.find(".js-remove-selected-items-wishlist-count").text(`(${selectedItemCount})`);
+        }
+    },
+
+    setSelectBtnMode: function (selectedItemCount, itemsCount) {
+        if (selectedItemCount === 0) {
+            ACC.wishlistLittleMe.setSelectMode();
+        } else {
+            ACC.wishlistLittleMe.setUnSelectMode();
+        }
+    },
+
+    setSelectMode: function () {
+        var $selectButton = $("[data-select-item]")
+        $selectButton.attr("data-select-item", "true");
+        $selectButton.text(loc("item.list.select.all.items"));
+    },
+
+    setUnSelectMode: function () {
+        var $selectButton = $("[data-select-item]")
+        $selectButton.attr("data-select-item", "false");
+        $selectButton.text(loc("item.list.unselect.all.items"));
+    },
+
+    bindAddProductUnit: function () {
+        $(".js-add-product-unit").click(ACC.wishlistLittleMe.addProductUnit);
+    },
+
+    addProductUnit: function () {
+        const $this = $(this)
+        const $productContainer = $this.closest('.js-item')
+        const $inverseOperationButton = $productContainer.find('.js-subtract-product-unit')
+        const productCode = $this.data("itemCode")
+
+        $this.off('click')
+        $inverseOperationButton.off('click')
+
+        $.post({
+            url: 'littleme/addProductUnit?productCode=' + productCode,
+            success: function () {
+                const $productQuantityElement = $this.closest(".js-item").find(".js-item-quantity");
+                const numUnitsOfProducts = parseInt($productQuantityElement.text());
+                $productQuantityElement.text(numUnitsOfProducts + 1);
+            },
+            error: function (data) {
+                console.log("Error adding product unit");
+                console.log(data);
+            },
+            complete: function () {
+                $this.click(ACC.wishlistLittleMe.addProductUnit)
+                $inverseOperationButton.click(ACC.wishlistLittleMe.subtractProductUnit)
+            }
+        });
+    },
+
+    bindSubtractProductUnit: function () {
+        $(".js-subtract-product-unit").click(ACC.wishlistLittleMe.subtractProductUnit)
+    },
+
+    subtractProductUnit: function () {
+        const $this = $(this)
+        const $productContainer = $this.closest('.js-item')
+        const $inverseOperationButton = $productContainer.find('.js-add-product-unit')
+        const productCode = $this.data("itemCode")
+
+        $this.off('click')
+        $inverseOperationButton.off('click')
+
+        $.post({
+            url: 'littleme/subtractProductUnit?productCode=' + productCode,
+            success: function () {
+                const $productQuantityElement = $productContainer.find(".js-item-quantity");
+                const numUnitsOfProducts = parseInt($productQuantityElement.text());
+
+                if (numUnitsOfProducts <= 1) {
+                    ACC.wishlistLittleMe.removeItem($this);
+                } else {
+                    $productQuantityElement.text(numUnitsOfProducts - 1);
+                }
+            },
+            error: function (data) {
+                console.log("Error adding product unit");
+                console.log(data);
+            },
+            complete: function () {
+                $this.click(ACC.wishlistLittleMe.subtractProductUnit)
+                $inverseOperationButton.click(ACC.wishlistLittleMe.addProductUnit)
+            }
+        });
+    },
+
+    bindRemoveProduct: function () {
+        $(".js-remove-selected-items-wishlist").click(function () {
+            const $this = $(this);
+
+            const $items = $this.closest(".js-items-section").find(".js-item-check");
+
+            const $selectedItems = ACC.wishlistLittleMe.getSelectedItems($items);
+            const productCodes = ACC.wishlistLittleMe.mapItemsToProductCodes($selectedItems);
+            const selectedItemCount = $selectedItems.length;
+
+            if (selectedItemCount > 0) {
+                $.post({
+                    url: 'littleme/removeProducts?productCodes=' + productCodes,
+                    success: function () {
+                        const $removeBtn = $this.closest(".js-items-section").find(".js-remove-selected-items-wishlist");
+                        const itemsCount = $items.length;
+                        $selectedItems.forEach(function ($item) {
+                            ACC.wishlistLittleMe.removeItem($item);
+                        });
+                    },
+                    error: function (data) {
+                        console.log("Error removing product");
+                        console.log(data);
+                    }
+                });
+            }
+        });
+    },
+
+    removeItem: function ($item, reload = true) {
+        $item.first().closest(".js-item").remove();
+
+        const $elementNumItems = $(".js-total-num-items");
+        $elementNumItems.text($elementNumItems.text() - 1);
+
+        if ($elementNumItems.text() <= 0 && reload) {
+            location.reload();
+        }
+
+        ACC.wishlistLittleMe.refreshAfterRemove();
+    },
+
+    refreshAfterRemove: function () {
+        const $section = $(".js-items-section");
+        const $items = $section.find(".js-item-check");
+        const $removeBtn = $section.find(".js-remove-selected-items-wishlist");
+
+        const selectedItemCount = ACC.wishlistLittleMe.getSelectedItems($items).length;
+        const itemsCount = $items.length;
+
+        ACC.wishlistLittleMe.refreshRemoveButton($removeBtn, selectedItemCount <= 0, selectedItemCount);
+        ACC.wishlistLittleMe.setSelectBtnMode(selectedItemCount, itemsCount);
+    },
+
+    mapItemsToProductCodes: function ($items) {
+        const productCodes = [];
+        $items.forEach(function ($item) {
+            productCodes.push($item.data("itemCode"));
+        });
+
+        return productCodes;
+    },
+
+    bindLittleMeDropdownMenu: function () {
+        const $menu = $(".little-me__menu");
+        const $html = $("html");
+
+        if ($menu.length) {
+            const $closeButton = $menu.find(".close-button");
+            $closeButton.on("click", function () {
+                $menu.removeClass("is-show");
+                $html.removeClass("is-block");
+                $menu.find('.js-little-me-message-cnt').empty();
+            });
+
+            document.addEventListener('click', function(event) {
+                if ($menu.hasClass("is-show")) {
+                    const elem = document.querySelector(".grocery-list-menu .promo-alerts__submenu");
+                    const outsideClick = !elem.contains(event.target);
+                    if (outsideClick) {
+                        $menu.removeClass("is-show");
+                        $html.removeClass("is-block");
+                        $menu.find('.js-little-me-message-cnt').empty();
+                    }
+                }
+            });
+        }
+    },
+
+    loadPopupWishlist: function (showAfterLoad = false) {
+        const container = $('.js-wishlist-content')
+        if (container.length) {
+            const url = container.data("baseUrl")
+            $.ajax({
+                type: "GET",
+                url,
+                success: function (data) {
+                    ACC.wishlistLittleMe.populatePopUp(data)
+                    if (showAfterLoad) {
+                        ACC.wishlistLittleMe.showLittleMePopUp()
+                    }
+                },
+                error: function () {
+                    console.error("An error occurred when loading the wishlist in pop-up");
+                }
+            })
+        }
+    },
+
+    populatePopUp: function (data) {
+        if (data.indexOf("promo-alerts-empty") >= 0) $(".promo-alerts__submenu-button").addClass("empty");
+        else $(".promo-alerts__submenu-button").removeClass("empty")
+        const content = $(data)
+        if (content.hasClass('js-wishlist-content')) {
+            $('.js-wishlist-content').replaceWith(content)
+            ACC.wishlistLittleMe.normalizeWishlistBoxHeight()
+        }
+    },
+
+    normalizeWishlistBoxHeight: function () {
+        const $wishlist = $('.litte-me__submenu')
+
+        const $products = $wishlist.find(".product")
+        const $productMessages = $products.find(".item-product__message")
+        let minHeight = 0
+
+        $.each($productMessages, function (index, element) {
+            if ($(element).outerHeight() > minHeight) minHeight = $(element).outerHeight()
+        });
+        $productMessages.css("min-height", minHeight + "px")
+    },
+
+    showLittleMePopUp: function () {
+        $('.little-me__menu').addClass('is-show')
+        $('html').addClass('is-block')
+    },
+
+    showLittleMePopUpAfterAddProduct: function () {
+        ACC.wishlistLittleMe.addAdditionMessageToLittleMePopUp('addedMessage')
+        ACC.wishlistLittleMe.loadPopupWishlist(true)
+    },
+
+    showLittleMePopUpAfterAddQuantityToProduct: function () {
+        ACC.wishlistLittleMe.addAdditionMessageToLittleMePopUp('addedQuantityMessage')
+        ACC.wishlistLittleMe.loadPopupWishlist(true)
+    },
+
+    showLittleMePopUpAfterRemoveProduct: function () {
+        ACC.wishlistLittleMe.addRemovedMessageToLittleMePopUp()
+        ACC.wishlistLittleMe.loadPopupWishlist(true)
+    },
+
+    addAdditionMessageToLittleMePopUp: function (dataSelector) {
+        const container = $('.js-little-me-message-cnt')
+        const addedMessage = container.data(dataSelector)
+
+        const addedAlert = `<div class="little-me-alert little-me-alert-added"><i class="icon shoprite-icon-check"></i> ${addedMessage}</div>`
+
+        container.empty()
+        container.append(addedAlert)
+    },
+
+    addRemovedMessageToLittleMePopUp: function () {
+        const container = $('.js-little-me-message-cnt')
+        const deletedMessage = container.data('deletedMessage')
+        const removedAlert = `<div class="little-me-alert little-me-alert-deleted"><i class="icon shoprite-icon-close"></i> ${deletedMessage}</div>`
+
+        container.empty()
+        container.append(removedAlert)
+    },
+
+    bindRemoveProductFromWishlistBtn: function (e) {
+        e.preventDefault();
+        const form = $(this)
+        const data = JSON.stringify({code: form.data('productCode')})
+        const url = form.data('removeUrl')
+        const type = form.attr('method')
+
+        $.ajax({
+            type,
+            url,
+            data,
+            contentType: "application/json; charset=utf-8",
+            success: ACC.wishlistLittleMe.showLittleMePopUpAfterRemoveProduct
+        })
+    },
+
+    refreshBindAddProductToWishlist: function () {
+        const actions = $(".js-wishlist-add-action");
+        actions.off('click');
+        actions.click(ACC.wishlistLittleMe.addProductToWishlist);
+    },
+
+    bindAddProductToWishlist: function () {
+        const actions = $(".js-wishlist-add-action");
+        actions.off();
+        actions.click(ACC.wishlistLittleMe.addProductToWishlist);
+    },
+
+    addProductToWishlist: function () {
+        const $this = $(this);
+        const productCode = $this.data("productCode");
+
+        $.post({
+            url: ACC.config.encodedContextPath + '/wishlist/littleme/addProduct',
+            data: JSON.stringify({code: productCode}),
+            contentType: "application/json; charset=utf-8",
+            success: function (data) {
+                if ($(data).hasClass("js-ajax-redirect")) {
+                    window.location.href = $(data).data("redirectUrl");
+                } else {
+                    if ($(data).hasClass("wishlistAddItemResponse")) {
+                        const result = $.parseJSON($(data).html());
+                        ACC.wishlistLittleMe.handleAddProductResponse(result, $this);
+                    }
+                }
+            },
+            error: function (data) {
+                console.log("Error adding product");
+                console.log(data);
+            }
+        });
+    },
+
+    handleAddProductResponse: function (result, $item) {
+        if (result["success"]) {
+            if (result["operation"] === 'OPERATION_ADD_PRODUCT') {
+                ACC.wishlistLittleMe.showLittleMePopUpAfterAddProduct();
+                ACC.wishlistLittleMe.changeAddProductIcon($item);
+            } else if (result["operation"] === 'OPERATION_ADD_PRODUCT_UNIT') {
+                ACC.wishlistLittleMe.showLittleMePopUpAfterAddQuantityToProduct();
+            } else {
+                console.log("No product could be added");
+            }
+        } else {
+            console.log("Error adding product");
+            console.log(result["message"]);
+        }
+    },
+
+    changeAddProductIcon: function ($item) {
+        const $itemIcon = $item.find(".icon");
+        const $itemText = $item.find(".text");
+        $itemIcon.removeClass("shoprite-icon-wishlist-add").addClass("shoprite-icon-added-to-wishlist");
+        $itemText.text(loc("wishlist.added.to.wishlist"));
+    },
+
+    bindLoadWishlistDetail: function () {
+        const container = $('.js-wishlist-detail')
+        const url = container.data('wishlistUrl')
+        $.ajax({
+            type: 'GET',
+            url,
+            success: function (data) {
+                ACC.wishlistLittleMe.populateContainer(container, data)
+            }
+        })
+    },
+
+    populateContainer: function (container, data) {
+        container.empty()
+        container.append(data)
+        ACC.wishlistLittleMe.bindAddProductUnit()
+        ACC.wishlistLittleMe.bindSubtractProductUnit()
+    },
+
+    bindCreateWishlistButton: function () {
+        const $button = $('.js-wishlist-create-button')
+        const $input = $('.js-wishlist-create-input')
+
+        $button.prop('disabled', !$input.val())
+
+        $input.change(function () {
+            $button.prop('disabled', !$(this).val())
+        })
+    },
+
+    bannersCarousel: function () {
+        const carousel = tns({
+            container: ".squared-multi-banner--carousel",
+            items: 1,
+            loop: false,
+            controls: false,
+            responsive: {
+                636: {
+                    items: 3,
+                    gutter: 46
+                }
+            }
+        });
+    },
+
+    fullyHideHeader: function () {
+        const $littleMeHeader = $(".js-littleme-hidden-header");
+        $littleMeHeader.removeClass("half-hidden");
+        $littleMeHeader.addClass("fully-hidden");
+    },
+
+    setHeaderHidden: function (setHidden) {
+        if (setHidden) {
+            $(".js-littleme-hidden-header").removeClass("fully-show");
+            $(".js-littleme-hidden-header").addClass("fully-hidden");
+        } else {
+            $(".js-littleme-hidden-header").removeClass("fully-hidden");
+            $(".js-littleme-hidden-header").addClass("fully-show");
+        }
+    },
+
+    downloadBabyWishlist: function () {
+        const $downloadBabyWishlist = $(".js-download-baby-wishlist");
+        $downloadBabyWishlist.on("click", function (e) {
+            e.preventDefault();
+            const $littleMeAccount = document.querySelector('.little-me-account');
+
+            const hasHiddenHeader = $(".js-littleme-hidden-header").length;
+
+            if (hasHiddenHeader) {
+                ACC.wishlistLittleMe.setHeaderHidden(false);
+            }
+
+            ACC.wishlistLittleMe.printElement($littleMeAccount, 'baby-wishlist');
+
+            if (hasHiddenHeader) {
+                ACC.wishlistLittleMe.setHeaderHidden(true);
+            }
+        });
+    },
+
+    printElement: function ($element2print, fileName) {
+        const {jsPDF} = window.jspdf;
+        const doc = new jsPDF('p', 'px', 'a4');
+
+        html2canvas($element2print).then((canvas) => {
+            const width = doc.internal.pageSize.getWidth()
+            const height = doc.internal.pageSize.getHeight()
+
+            const widthRatio = width / canvas.width
+            const heightRatio = height / canvas.height
+
+            const ratio = widthRatio > heightRatio ? heightRatio : widthRatio
+
+            const vMargin = 10;
+            const hMargin = 10;
+
+            doc.addImage(
+                canvas.toDataURL('image/jpeg', 1.0), 'JPEG', hMargin, vMargin,
+                canvas.width * ratio - hMargin * 2,
+                canvas.height * ratio - vMargin * 2,
+            )
+
+            doc.save(fileName)
+        })
+    },
+
+    bindShareMyWishlist: function () {
+        const $showShareWishlist = $(".js-show-share-wishlist");
+        const $shareMyWishlist = $(".share-my-wishlist");
+        const $shareWishlist = $(".js-share-wishlist");
+
+        if ($shareMyWishlist.length) {
+            $shareMyWishlist.appendTo($("body"));
+            $showShareWishlist.on("click", function () {
+                $shareMyWishlist.addClass("is-show");
+            });
+
+            $shareMyWishlist.find(".share-my-wishlist__close").on("click", function () {
+                $shareMyWishlist.removeClass("is-show");
+            });
+
+            $shareMyWishlist.find(".share-my-wishlist__input").on("input", function () {
+                if ($(this).val() !== "") {
+                    $shareWishlist.attr("disabled", false);
+                } else {
+                    $shareWishlist.attr("disabled", true);
+                }
+            });
+
+            $shareWishlist.click(ACC.wishlistLittleMe.shareMyWishlist)
+        }
+    },
+
+    shareMyWishlist: function () {
+        const form = this.closest("form#share-my-wishlist")
+        const toAddress = form.querySelector("#toAddress").value
+        const $shareMyWishlist = $(".share-my-wishlist");
+        const $shareWishlist = $(".js-share-wishlist");
+
+        $.post({
+            url: form.action,
+            data: JSON.stringify({
+                toAddresses: (
+                    toAddress
+                        .split(';')
+                        .map(address => address.trim())
+                        .filter(address => address.length > 0)
+                ),
+            }),
+            contentType: "application/json",
+            success() {
+                $shareMyWishlist.removeClass("is-show");
+                $shareMyWishlist.find(".error-message").hide();
+                $shareMyWishlist.find(".share-my-wishlist__input").val("");
+                $shareWishlist.attr("disabled", true);
+
+                const templateAlert = '<div class="alert-rating">' +
+                    '<span class="text">' + loc("wishlist.alert.message") + '</span>' +
+                    '</div>';
+
+                const $alertWrapper = $('.little-me-account');
+                $alertWrapper.append(templateAlert);
+
+                const $alert = $(".alert-rating");
+                setTimeout(function () {
+                    $alert.addClass("is-hide");
+                    setTimeout(function () {
+                        $alert.remove();
+                    }, 500);
+                }, 2500);
+            },
+            error: function (data) {
+                $shareMyWishlist.find(".error-message").show();
+            }
+        })
+    },
+
+}

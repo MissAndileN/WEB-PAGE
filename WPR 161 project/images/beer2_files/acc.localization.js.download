@@ -1,0 +1,13 @@
+ACC.localization = {
+
+    _autoload: [
+        "initMessageLocalization"
+    ],
+
+    initMessageLocalization: function () {
+        window.loc = function (key) {
+            const values = base[document.documentElement.lang];
+            return values[key];
+        };
+    }
+};

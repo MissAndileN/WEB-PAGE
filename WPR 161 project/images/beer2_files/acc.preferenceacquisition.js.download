@@ -1,0 +1,180 @@
+ACC.preferenceacquisition = {
+    _autoload: [
+        ["validateProfileEdit", $("#js-preference-acquisition-form").length],
+        ["bindUpdatePreferences", $(".js-preference-acquisition-item").length],
+        ["bindPostUpdate", $(".js-preference-acquisition-update-btn").length],
+        ["bindCancelUpdate", $(".js-preference-acquisition-cancel-btn").length],
+        ["bindConsentUpdate", $("#js-preference-acquisition-consent-form").length],
+        ["showOtpPopup", $("#js-preference-acquisition-otp-popup").length]
+   ],
+
+    preferences: [],
+    emailChanged: false,
+    emailValid: true,
+
+    validateProfileEdit: function () {
+        $.validator.addMethod('fullEmail', function (value, element) {
+            return this.optional(element) || ACC.validations.validateEmail(value);
+        }, loc('input.enter.email'));
+
+        $.validator.addMethod('numbersOnly', function (value, element) {
+            return this.optional(element) || ACC.validations.numbersOnly(value);
+        }, loc('form.validator.numbersOnly'));
+
+        let maxLength = 10;
+        $('#mobileNumber').on('keydown', function (event) {
+            const $this = $(this);
+            const inputValue = $this.val();
+
+            let zeroAfterNineDigits = false;
+            if (inputValue.length === 9 && event.key === "0" && this.selectionStart === 0) {
+                maxLength = 10;
+                zeroAfterNineDigits = true;
+            } else {
+                maxLength = inputValue.startsWith("0") ? 10 : 9;
+            }
+            $(this).prop('maxlength', maxLength).attr('maxlength', maxLength);
+            if (zeroAfterNineDigits) $this.val("0" + inputValue);
+
+            return ACC.global.isNumberKey(event);
+        });
+
+        $(".js-otp-cancel").on("click", function () {
+            $('#js-preference-acquisition-otp-popup').addClass('hidden');
+            ACC.colorbox.close();
+        });
+
+        const $form = $('#js-preference-acquisition-form');
+        const isEmailRequired = $form.find('#isEmailRequired').val() === "true";
+
+        if ($form.length > 0) {
+            $form.validate({
+                errorElement: 'span',
+                errorClass: 'sr-error',
+                rules: {
+                    email: {
+                        required: isEmailRequired,
+                        fullEmail: true
+                    },
+                    mobileNumber: {
+                        required: true,
+                        minlength: 9,
+                        maxlength: maxLength,
+                        number: true,
+                        numbersOnly: true
+                    }
+                },
+                errorPlacement: function (error, element) {
+                    element.parent().append(error);
+                },
+                onkeyup: function (element) {
+                    const $element = $(element);
+                    ACC.validations.validateForm($form);
+                    ACC.preferenceacquisition.inputChanged = $element.closest('.js-preference-acquisition-input').attr('data-current-value') !== $element.val();
+                    ACC.preferenceacquisition.emailValid = $form.valid();
+                    ACC.preferenceacquisition.updateButtons();
+                },
+                onfocusout: function (element) {
+                    this.element(element);
+                }
+            });
+        }
+    },
+
+    bindUpdatePreferences: function () {
+        $(document).on("change", ".js-preference-acquisition-item", function () {
+            const $this = $(this);
+            const preferenceObject = {
+                code: $this.data("code"),
+                active: $this.is(':checked'),
+                name: $this.attr("data-name")
+            };
+
+            ACC.preferenceacquisition.addPreference(preferenceObject);
+            const $form = $('#js-preference-acquisition-form');
+            ACC.preferenceacquisition.emailValid = $form.valid();
+            ACC.preferenceacquisition.updateButtons();
+        });
+    },
+
+    updateButtons: function () {
+        const preferencesChanged = ACC.preferenceacquisition.preferences && ACC.preferenceacquisition.preferences.length > 0;
+        if (ACC.preferenceacquisition.emailValid && (ACC.preferenceacquisition.inputChanged || preferencesChanged)) {
+            $('.js-preference-acquisition-update-btn').prop('disabled', false);
+        } else {
+            $('.js-preference-acquisition-update-btn').prop('disabled', true);
+        }
+        if (ACC.preferenceacquisition.inputChanged || preferencesChanged) {
+            $('.js-preference-acquisition-cancel-btn').prop('disabled', false);
+        } else {
+            $('.js-preference-acquisition-cancel-btn').prop('disabled', true);
+        }
+    },
+
+    bindPostUpdate: function () {
+        $(document).on("click", ".js-preference-acquisition-update-btn", function () {
+            const $hidden = $('<input type="hidden" name="preferences"/>');
+            $hidden.val(JSON.stringify(ACC.preferenceacquisition.preferences));
+            const form = $("#js-preference-acquisition-form");
+            form.append($hidden);
+            form.submit();
+        });
+    },
+
+    bindCancelUpdate: function () {
+        $(document).on("click", '.js-preference-acquisition-cancel-btn', function () {
+            window.location.href = $(this).data("url");
+        });
+    },
+
+    bindConsentUpdate: function () {
+        $(document).on("change", "#marketingConsent", function () {
+            const $form = $("#js-preference-acquisition-consent-form");
+            $form.submit();
+        });
+    },
+
+    addPreference: function (preference) {
+        const found = ACC.preferenceacquisition.findElement(ACC.preferenceacquisition.preferences,
+            preference);
+
+        if (!found) {
+            ACC.preferenceacquisition.preferences.push(preference);
+        } else {
+            const index = ACC.preferenceacquisition.preferences.indexOf(found);
+            ACC.preferenceacquisition.preferences.splice(index, 1);
+        }
+    },
+
+    findElement: function (list, elementToFind) {
+        return list.find(function (element) {
+            return element.code === elementToFind.code;
+        });
+    },
+
+    showOtpPopup: function () {
+        let otpPopup = $("#otpPopup").val();
+        if (otpPopup === 'true') {
+            $('#js-preference-acquisition-otp-popup').removeClass('hidden');
+            ACC.colorbox.open('', {
+                href: '#js-preference-acquisition-otp-popup',
+                title: '',
+                inline: true,
+                width: '311px',
+                onComplete: function () {
+                    ACC.colorbox.resize();
+                    const $otpForm = $("#shrOneTimePinForm");
+                    const firstOtp = $otpForm.find("#otp_1");
+
+                    if (firstOtp.length > 0 && firstOtp.is(":visible")) {
+                        firstOtp.focus();
+                    }
+                },
+                onClosed: function () {
+                    $('#js-preference-acquisition-otp-popup').addClass('hidden');
+                }
+            });
+        }
+    }
+       
+};

@@ -1,0 +1,49 @@
+ACC.storefindertooltip = {
+    _autoload: [
+        ["bindTooltipNotificationClick", $(".js-store-finder-tooltip-close, .select-store-popup__close").length > 0],
+        ["initTooltipOverBottomMenu", $("#js-store-finder-tooltip").length > 0],
+        "showPreferredStoreCloseModal"
+    ],
+
+    bindTooltipNotificationClick: function () {
+        $('.js-store-finder-tooltip-close, .select-store-popup__close').on("click", function () {
+            $.cookie('cookie-store-tooltip', "CLOSED", {path: '/', secure: true});
+            $('#js-store-finder-tooltip').hide();
+        });
+    },
+
+    showPreferredStoreCloseModal: function () {
+        const $scriptPreferredStoreClosedModalTmp = $('script[data-template="preferred-store-closed-modal-tmp"]');
+        if ($scriptPreferredStoreClosedModalTmp.text().trim().length > 0) {
+            ACC.colorbox.open("", {
+                className: "store-closed-down",
+                html: $scriptPreferredStoreClosedModalTmp.text(),
+                width: '410px',
+                overlayClose: false,
+                scrolling: false,
+                onOpen: function () {
+                    ACC.colorbox.resize();
+                },
+                onClosed: function () {
+                    ACC.promoAlerts.displayPromoAlertsPopup();
+                }
+            });
+        }
+    },
+
+    initTooltipOverBottomMenu: function () {
+        if (ACC.shopriteutils.isMobileBrowser()) {
+            const $tooltipSelector = $("#js-store-finder-tooltip");
+
+            const $bottomMenuSelector = $(".header-bottom-mob");
+            if ($bottomMenuSelector.length > 0) {
+                const bottomMenuHeight = $bottomMenuSelector.height();
+                $tooltipSelector.css("bottom", bottomMenuHeight);
+                $tooltipSelector.show();
+            } else {
+                $tooltipSelector.css("bottom", 60);
+                $tooltipSelector.show();
+            }
+        }
+    }
+};

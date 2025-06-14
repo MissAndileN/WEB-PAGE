@@ -1,0 +1,97 @@
+ACC.otp = {
+
+    _autoload: [
+        ["loadOTPInput", $("#shrOneTimePinForm").length > 0],
+        ["bindOtpInput", $(".js-otp-input").length > 0],
+        ["bindOtpCountdown", $(".js-otp-remaining-time").length]
+    ],
+
+    loadOTPInput: function () {
+        const $otpForm = $("#shrOneTimePinForm");
+        const $otpLength = $("#otp-length");
+        const $otpInput = $otpForm.find("input[name='oneTimePin']");
+        let otp = $otpInput.val();
+        const firstOtp = $otpForm.find("#otp_1");
+
+        if (firstOtp.length > 0 && firstOtp.is(":visible")) {
+            firstOtp.focus();
+        }
+
+        if (otp && otp.length === parseInt($otpLength.val())) {
+            $("input[id^=otp_]").each(function () {
+                $(this).val(otp.substring(0, 1));
+                otp = otp.substring(1);
+            });
+            $(".one-time-pin-submit").attr("disabled", false);
+        }
+    },
+
+    bindOtpInput: function () {
+        $("input.js-otp-input").on("input", function () {
+            const $this = $(this);
+            const $otpLength = $("#otp-length");
+            const $formSubmitBtn = $(".one-time-pin-submit");
+            const $errorSelector = $("#oneTimePin-error");
+            const $target = $("#oneTimePin");
+            const pinInputs = $("input[id^=otp_]");
+            const position = parseInt($this.data('position')) || 0;
+            let str = "";
+            const values = [...$this.val().trim()];
+
+            values.forEach((value, index) => {
+                const input = pinInputs[position + index];
+                if (input) { input.value = value }
+            } );
+
+            $("input[id^=otp_]").each(function () {
+                const pinValue = parseInt($(this).val())
+                if (!isNaN(pinValue)) { str += pinValue }
+            });
+
+            $target.val(str);
+
+            if (!isNaN(parseInt($this.val())) && $this.val().length === 1 && $this.data("next-target") !== "") {
+                $("#" + $this.data("next-target")).focus();
+            }
+
+            if ($target.val().length === parseInt($otpLength.val())) {
+                $errorSelector.hide();
+                $formSubmitBtn.attr("disabled", false);
+            } else {
+                $formSubmitBtn.attr("disabled", true);
+            }
+        });
+    },
+
+    bindOtpCountdown: function () {
+        const $otpRemainingTime = $(".js-otp-remaining-time");
+        const $otp = $otpRemainingTime.find(".otp");
+        let $otpText = $otp.find("span");
+        let $otpValue = $otp.find("strong");
+        let otpMinutes = $otp.data("remainingMinutes");
+        let otpSeconds = $otp.data("remainingSeconds");
+        if (otpMinutes === 1) $otpValue.html(otpMinutes + " " + loc("text.minute"));
+
+        const secondsInterval = setInterval(function () {
+            otpSeconds--;
+            if (otpSeconds > 1) {
+                if (otpSeconds % 60 === 0) {
+                    otpMinutes--;
+                    if (otpMinutes > 1) {
+                        $otpValue.html(otpMinutes + " " + loc("text.minutes"));
+                    } else {
+                        $otpValue.html(otpMinutes + " " + loc("text.minute"));
+                    }
+                }
+            } else {
+                $otpText.html(loc("otp.expiration.expired"));
+                clearInterval(secondsInterval);
+            }
+        }, 1000);
+    },
+
+    reloadOtpBindings() {
+        ACC.otp.loadOTPInput();
+        ACC.otp.bindOtpInput();
+    }
+};

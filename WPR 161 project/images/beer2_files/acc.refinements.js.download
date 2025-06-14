@@ -1,0 +1,459 @@
+ACC.refinements = {
+
+    _autoload: [
+        ["bindMoreLessToggles", $(".js-facet-form").length !== 0],
+        ["bindMoreStoresToggles", $(".js-facet-form").length !== 0],
+        ["init", $(".js-facet-form").length !== 0],
+        ["bindSearch", $(".js-facet-form").length !== 0],
+        ["bindFilter", $(".js-facet-form").length !== 0],
+        ["bindAppliedFacetsAction", $(".js-remove-applied-facet").length],
+        ["bindSidebarSearchComponentPosition", $(".js-sidebar-search-component").length],
+        ["bindRefineSearchOnLanding", $(".search-landing__block").length],
+        ["bindMobileRefineOnLanding", $(".search-landing__block").length],
+        ["openMobileFacets", $(".search-landing__block").length]
+    ],
+
+
+    coords: {},
+    storeSearchData: {},
+
+    init: function () {
+        const storedGeolocation = ACC.global.getStoredGeolocation()
+        if (storedGeolocation) {
+            ACC.refinements.coords = storedGeolocation
+        } else if (!ACC.global.isGeolocationPermissionDenied()) {
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                    ACC.global.setStoredGeolocation(position)
+                    ACC.refinements.coords = position.coords
+                },
+                function (error) {
+                    if (error.code === GeolocationPositionError.PERMISSION_DENIED) {
+                        ACC.global.storeGeolocationPermissionDenied(true)
+                    }
+                    console.log("An error occurred... The error code and message are: " + error.code + "/" + error.message)
+                }
+            );
+        }
+    },
+
+
+    bindSearch: function () {
+
+        $(document).on("submit", '#user_location_form', function (e) {
+            e.preventDefault();
+            var q = $(".js-shop-stores-facet .js-shop-store-search-input").val();
+            if (q.length > 0) {
+                ACC.refinements.getInitStoreData(q);
+            }
+        });
+
+        $(document).on("click", '#findStoresNearMeAjax', function (e) {
+            e.preventDefault();
+            ACC.refinements.getInitStoreData(null, ACC.refinements.coords.latitude, ACC.refinements.coords.longitude);
+        });
+    },
+
+
+    getInitStoreData: function (q, latitude, longitude) {
+        $(".alert").remove();
+        data = {
+            "q": "",
+            "page": "0"
+        };
+
+        if (q != null) {
+            data.q = q;
+        }
+
+
+        if (latitude != null) {
+            data.latitude = latitude;
+        }
+
+        if (longitude != null) {
+            data.longitude = longitude;
+        }
+
+        ACC.refinements.storeSearchData = data;
+        ACC.refinements.getStoreData();
+    },
+
+
+    getStoreData: function () {
+        url = $(".js-facet-form").data("url");
+        $.ajax({
+            url: url,
+            data: ACC.refinements.storeSearchData,
+            type: "get",
+            dataType: 'text',
+            success: function (response) {
+                window.location.reload();
+            }
+        });
+    },
+
+    bindMoreLessToggles: function () {
+
+        $(document).on("click", ".js-shop-stores-facet .js-facet-change-link", function (e) {
+            e.preventDefault();
+            $(".js-shop-stores-facet .js-facet-container").hide();
+            $(".js-shop-stores-facet .js-facet-form").show();
+        });
+
+        $(document).on("change", ".js-product-facet .js-facet-checkbox", function () {
+            const $checkbox = $(this);
+            if ($checkbox.hasClass("js-special-facet") || (!ACC.shopriteutils.isMobileOrTabletBrowser() && window.innerWidth > 1366)) {
+                $checkbox.parents("form").submit();
+            }
+        });
+
+        $(document).on("click", ".js-product-facet .js-more-facet-values-link", function (e) {
+            e.preventDefault();
+            showMore.call(this);
+        });
+
+        $(document).on("click", ".js-product-facet .js-less-facet-values-link", function (e) {
+            e.preventDefault();
+            showLess.call(this);
+        });
+    },
+
+    bindMoreStoresToggles: function () {
+        $(document).on("click", ".js-shop-stores-facet .js-more-stores-facet-values", function (e) {
+            e.preventDefault();
+            $(".js-shop-stores-facet ul.js-facet-list li.hidden").slice(0, 5).removeClass('hidden').first().find('.js-facet-checkbox').focus();
+            if ($(".js-shop-stores-facet ul.js-facet-list li.hidden").length === 0) {
+                $(".js-shop-stores-facet .js-more-stores-facet-values").hide();
+            }
+        });
+    },
+
+    bindFilter: function () {
+        ACC.refinements.bindFilterForInputSearch($(".facet__input-search"));
+    },
+
+    bindFilterForInputSearch: function ($facetInputSearch) {
+        if ($facetInputSearch.length) {
+            $.each($facetInputSearch, function (index, element) {
+                var $facetSearch = $(element);
+                var $inputFilterJs = $facetSearch.find(".filter-js");
+                var $buttonClean = $facetSearch.find(".facet__input-search__btn-clean");
+
+                $inputFilterJs.on("input", function (e) {
+                    e.preventDefault();
+                    showMore.call(this);
+                    let val = $(e.target).val().toLowerCase();
+                    $(e.target).closest(".js-facet").find('ul>li').hide().filter(function () {
+                        return $(this).text().toLowerCase().indexOf(val) > -1
+                    }).stop(true).show();
+                    if (val.length === 0) {
+                        showLess.call(this);
+                    }
+
+                    if ($(this).val() !== "") {
+                        $facetSearch.addClass("is-writing");
+                    } else {
+                        $facetSearch.removeClass("is-writing");
+                        showLess.call(this);
+                    }
+                });
+
+                $inputFilterJs.on("click", function () {
+                    $(this).prop("readonly", "");
+                    $(this).focus();
+                });
+
+                $inputFilterJs.on("blur", function () {
+                    $(this).prop("readonly", "readonly");
+                });
+
+                $buttonClean.on("click", function () {
+                    $facetSearch.removeClass("is-writing");
+                    $inputFilterJs.val("").focus();
+                    showLess.call($inputFilterJs[0]);
+                });
+            });
+        }
+    },
+
+    bindAppliedFacetsAction: function () {
+        $(document).on("click", ".js-remove-applied-facet", function (e) {
+            e.preventDefault();
+            const $appliedFacet = $(this);
+            $appliedFacet.parents("form").submit();
+        });
+    },
+
+    bindSidebarSearchComponentPosition: function () {
+        const $sidebarSearchComponent = $(".js-sidebar-search-component");
+        enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenSmMax) + ")", {
+            match: function () {
+                $sidebarSearchComponent.insertAfter("#product-facet .facet-filter-actions");
+            },
+            unmatch: function () {
+                $sidebarSearchComponent.appendTo(".js-sidebar-search-component-wrapper");
+            }
+        });
+    },
+
+    bindRefineSearchOnLanding: function () {
+        $(document).on("change", ".js-product-facet .js-search-landing-product-facet-checkbox", function () {
+            const $form = $(this).parents("form");
+            if ($form.length && !ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineSearch($form.data("ajaxUrl"), ACC.refinements.refineProductSearch());
+            }
+        });
+
+        $(document).on("click", ".js-product-facet .js-search-landing-product-facet-link", function (e) {
+            e.preventDefault();
+            if (!ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineSearch($(this).attr('href'), ACC.refinements.refineProductSearch());
+            }
+        });
+
+        $(document).on("click", ".js-search-landing-product-content .js-remove-applied-facet", function () {
+            const $form = $(this).parents("form");
+            if ($form.length && !ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineSearch($form.data("ajaxUrl"), ACC.refinements.refineProductSearch());
+            }
+        });
+
+        $(document).on("change", ".js-product-facet .js-search-landing-recipe-facet-checkbox", function () {
+            const $form = $(this).parents("form");
+            if ($form.length && !ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineSearch($form.data("ajaxUrl"), ACC.refinements.refineRecipeSearch());
+            }
+        });
+
+        $(document).on("click", ".js-product-facet .js-search-landing-recipe-facet-link", function (e) {
+            e.preventDefault();
+            if (!ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineSearch($(this).attr('href'), ACC.refinements.refineRecipeSearch());
+            }
+        });
+
+        $(document).on("click", ".js-search-landing-recipe-content .js-remove-applied-facet", function () {
+            const $form = $(this).parents("form");
+            if ($form.length && !ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineSearch($form.data("ajaxUrl"), ACC.refinements.refineRecipeSearch());
+            }
+        });
+    },
+
+    bindMobileRefineOnLanding: function () {
+        $(document).on("click", ".js-landing-product-refine-close", function () {
+            if (ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineMobileSearch("#product-facet[data-type-code='Product']", "Product");
+            }
+        });
+
+        $(document).on("click", ".js-landing-recipe-refine-close", function () {
+            if (ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.refineMobileSearch("#product-facet[data-type-code='Recipe']", "Recipe");
+            }
+        });
+    },
+
+    refineProductSearch: function () {
+        return function (data) {
+            const $refinedProducts = $(data);
+            if ($refinedProducts.hasClass("js-search-landing-product-content")) {
+                ACC.refinements.bindFilterForInputSearch($refinedProducts.find(".facet__input-search"));
+                $(".js-search-landing-product-content").replaceWith($refinedProducts);
+                let total = 0;
+
+                const $recipesCount = $(".js-total-recipes");
+                if ($recipesCount.length) {
+                    const numberOfRecipes = parseInt($recipesCount.data("total"));
+                    total += numberOfRecipes;
+                }
+
+                const $productsCount = $refinedProducts.find(".js-total-products");
+                if ($productsCount.length) {
+                    const numberOfProducts = parseInt($productsCount.data("total"));
+                    total += numberOfProducts;
+                }
+
+                const $categoriesCount = $(".js-total-categories");
+                if ($categoriesCount.length) {
+                    const numberOfCategories = parseInt($categoriesCount.data("total"));
+                    total += numberOfCategories;
+                }
+
+                $(".js-landing-total-result").text(total);
+                ACC.product.populateProductsWithHeavyAttributes();
+            }
+        }
+    },
+
+    refineRecipeSearch: function () {
+        return function (data) {
+            const $refinedRecipes = $(data);
+            if ($refinedRecipes.hasClass("js-search-landing-recipe-content")) {
+                ACC.refinements.bindFilterForInputSearch($refinedRecipes.find(".facet__input-search"));
+                $(".js-search-landing-recipe-content").replaceWith($refinedRecipes);
+                let total = 0;
+
+                const $recipeCount = $refinedRecipes.find(".js-total-recipes");
+                if ($recipeCount.length) {
+                    const numberOfRecipes = parseInt($recipeCount.data("total"));
+                    total += numberOfRecipes;
+                }
+
+                const $productsCount = $(".js-total-products");
+                if ($productsCount.length) {
+                    const numberOfProducts = parseInt($productsCount.data("total"));
+                    total += numberOfProducts;
+                }
+
+                const $categoriesCount = $(".js-total-categories");
+                if ($categoriesCount.length) {
+                    const numberOfCategories = parseInt($categoriesCount.data("total"));
+                    total += numberOfCategories;
+                }
+
+                $(".js-landing-total-result").text(total);
+            }
+        }
+    },
+
+    refineMobileSearch: function (selector, itemType) {
+        const $facetForms = $(selector + " form[data-ajax-url]");
+        if ($facetForms.length) {
+            const $facetForm = $($facetForms[0]);
+            let url = $facetForm.data("ajaxUrl").split("?")[0];
+
+            const selected = [];
+            const nonSelected = [];
+            $facetForms.each(function () {
+                const $form = $(this);
+                const $checkBox = $form.find("input[type='checkbox']");
+                if ($checkBox.length) {
+                    const isSelected = $checkBox.is(":checked");
+                    if (isSelected) {
+                        selected.push($checkBox.val());
+                    } else {
+                        nonSelected.push($checkBox.val());
+                    }
+                }
+            });
+
+            let currentSearchQueryValue = $(selector + " input[name=currentSearchQuery]").val();
+            if (currentSearchQueryValue) {
+                $.each(nonSelected, function (index, item) {
+                    const regExp = new RegExp(":" + item, "g");  // regex pattern string
+                    currentSearchQueryValue = currentSearchQueryValue.replace(regExp, "");
+                });
+                if (selected.length) {
+                    $.each(selected, function (index, item) {
+                        const regExp = new RegExp(":" + item, "g");  // regex pattern string
+                        currentSearchQueryValue = currentSearchQueryValue.replace(regExp, "");
+                    });
+                    currentSearchQueryValue = currentSearchQueryValue + ":" + selected.join(":");
+                }
+            } else {
+                currentSearchQueryValue = selected.length ? "::" + selected.join(":") : '';
+            }
+
+            if (currentSearchQueryValue) {
+                url = url + "?q=" + currentSearchQueryValue;
+                if (itemType === "Product") {
+                    ACC.refinements.refineSearch(url, ACC.refinements.refineProductSearch());
+                } else if (itemType === "Recipe") {
+                    ACC.refinements.refineSearch(url, ACC.refinements.refineRecipeSearch());
+                }
+
+                ACC.colorbox.close();
+            }
+        }
+    },
+
+    openMobileFacets: function () {
+        $(document).on("click", ".js-search-landing-product-show-facets", function (e) {
+            e.preventDefault();
+            if (ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.openMobileFacetsModal(".js-search-landing-product-content .js-product-facet",
+                    $(this).data("selectRefinementsTitle"));
+            }
+        });
+
+        $(document).on("click", ".js-search-landing-recipe-show-facets", function (e) {
+            e.preventDefault();
+            if (ACC.shopriteutils.isMobileOrTabletBrowser()) {
+                ACC.refinements.openMobileFacetsModal(".js-search-landing-recipe-content .js-product-facet",
+                    $(this).data("selectRefinementsTitle"));
+            }
+        });
+    },
+
+    openMobileFacetsModal: function (facetSelector, modalTitle) {
+        const $mainHeader = $(".js-mainHeader");
+        const _asmHeight = $("#_asm").outerHeight() || 0;
+        const topHeaderHeight = $mainHeader.outerHeight();
+        const top = topHeaderHeight + _asmHeight;
+
+        const colorBoxTitleHtml = ACC.common.encodeHtml(modalTitle);
+        const $html = $('html');
+
+        ACC.colorbox.open(colorBoxTitleHtml, {
+            className: "categories-facets-overlay filter",
+            href: facetSelector,
+            inline: true,
+            width: "300px",
+            height: "100%",
+            top: top,
+            close: false,
+            onComplete: function () {
+                $("#cboxTopCenter").parent().remove();
+                $("#cboxTitle").remove();
+                $(".facet__values").show();
+                $html.addClass('block');
+
+                const $categoriesFacetsOverlay = $("#colorbox.categories-facets-overlay");
+                const $cboxLoadedContent = $("#cboxLoadedContent");
+
+                if (window.innerWidth < 1920) {
+                    $categoriesFacetsOverlay.css("top", top + window.pageYOffset);
+                    $cboxLoadedContent.css("height", document.documentElement.clientHeight - top);
+                }
+
+                ACC.product.setOverlay(top);
+                ACC.product.initFacetSelect();
+            },
+            onClosed: function () {
+                $(document).off("click", ".js-product-facet .js-facet-name");
+                $html.removeClass('block');
+            }
+        });
+    },
+
+    refineSearch: function (url, successHandler) {
+        $.ajax({
+            type: "GET",
+            url: ACC.config.encodedContextPath + url,
+            success: successHandler,
+            error: function () {
+                console.error("An error occurred when refining search on landing page");
+            }
+        });
+    }
+};
+
+function showMore() {
+    var $jsFacet = $(this).closest(".js-facet");
+    $jsFacet.find(".js-facet-list-hidden").slideDown('fast');
+
+    $jsFacet.find(".js-more-facet-values").hide();
+    $jsFacet.find(".js-less-facet-values").show();
+}
+
+function showLess() {
+    var $jsFacet = $(this).closest(".js-facet");
+    $jsFacet.find(".js-facet-list-hidden").slideUp('fast');
+
+    $jsFacet.find(".js-more-facet-values").show();
+    $jsFacet.find(".js-less-facet-values").hide();
+
+    $jsFacet.find("ul>li").show()
+}

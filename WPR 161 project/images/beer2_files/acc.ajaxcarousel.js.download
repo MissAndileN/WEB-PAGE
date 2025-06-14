@@ -1,0 +1,158 @@
+ACC.ajaxcarousel = {
+
+    loadAjaxCarousel: function () {
+        const carouselWrappers = $('.js-ajax-carousel');
+        carouselWrappers.each(function () {
+            if (!$(this).data("initialized") === true) {
+                ACC.ajaxcarousel.retrieveAjaxCarouselContent($(this));
+                $(this).data("initialized", true);
+            }
+        });
+    },
+
+    retrieveAjaxCarouselContent: function (carouselWrapper) {
+        const componentId = carouselWrapper.data("componentId");
+        const baseUrl = carouselWrapper.data("baseUrl");
+
+        $.ajax({
+            type: "GET",
+            url: baseUrl,
+            data: ({componentId: componentId}),
+            success: ACC.ajaxcarousel.populateAjaxCarousel(carouselWrapper),
+            error: function () {
+                console.error("An error occurred when loading carousel component " + componentId);
+            }
+        });
+    },
+
+    populateAjaxCarousel: function (carouselWrapper) {
+        return function (data) {
+            const carouselComponent = $(data);
+            if (carouselComponent.hasClass("js-ajax-carousel-content-container")) {
+                carouselWrapper.append(data);
+                ACC.ajaxcarousel.applyCarouselConfig(carouselWrapper);
+                ACC.ajaxcarousel.postProcessAjaxCarousel(carouselWrapper);
+            } else {
+                carouselWrapper.hide();
+            }
+        }
+    },
+
+    postProcessAjaxCarousel: function (carouselWrapper) {
+        ACC.personalization.displayHiddenPersonalizationComponent(carouselWrapper);
+        ACC.ajaxcarousel.setPreferredStoreButtonHandler();
+        ACC.common.bonusBuyHeightItemProduct();
+        const carouselType = carouselWrapper.data("componentType");
+        if (carouselType === "LProProductOffersCarouselComponent") {
+            ACC.countdown.updateCounter(carouselWrapper.find(".timer-card"));
+        }
+    },
+
+    applyCarouselConfig: function (carouselWrapper) {
+        const carouselType = carouselWrapper.data("componentType");
+        let $c;
+        if (carouselType === "LProOffersCarouselComponent") {
+            $c = carouselWrapper.find(".js-ajax-carousel-content");
+            ACC.carousel.bindCarousel($c);
+        } else {
+            $c = carouselWrapper.find(".js-ajax-carousel-content");
+            if ($c.closest(".personalization-container").length > 0) {
+                //ACC.carousel.carouselConfig.default.rewindNav = false;
+                /*ACC.carousel.carouselConfig.default.beforeInit = function () {
+                    const $carouselContainer = $c.closest(".personalization-container");
+                    const $carouselContainerLeftSide = $carouselContainer.find(".personalization-container__left-side");
+                    if (!$c.find(".personalization-container__left-side").length) {
+                        $c.prepend($carouselContainerLeftSide[0].outerHTML);
+                    }
+                }*/
+                const classRandom = "ajax-carousel-" + Date.now();
+                $c.addClass(classRandom);
+                const $carouselContainer = $c.closest(".personalization-container");
+                $c.removeClass("js-owl-carousel");
+                $c.children().wrap("<div></div>");
+                let isRebuilt = false;
+                const ajaxCarousel = tns({
+                    "autoWidth": true,
+                    "loop": false,
+                    "mouseDrag": true,
+                    "container": "." + classRandom,
+                    "swipeAngle": false,
+                    "speed": 400,
+                    "nav": false,
+                    "controlsText": [
+                        "<i class='shoprite-icon-chevron-left'></i>",
+                        "<i class='shoprite-icon-chevron-right'></i>"
+                    ],
+                    "onInit": function () {
+                        if (!isRebuilt) {
+                            ajaxCarousel.destroy();
+                            ajaxCarousel.rebuild();
+                            isRebuilt = true;
+                        }
+                    }
+                });
+
+                enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenXsMax) + ")", {
+                    match: function () {
+                        ajaxCarousel.destroy();
+                        ajaxCarousel.rebuild();
+                    },
+                    unmatch: function () {
+                        ajaxCarousel.destroy();
+                        ajaxCarousel.rebuild();
+                    }
+                });
+            } else {
+                $c.owlCarousel(ACC.carousel.carouselConfig.default);
+            }
+        }
+    },
+
+    setPreferredStoreButtonHandler: function () {
+        $(".js-set-preferred-store-btn").off("click").on("click", function (e) {
+            const $btn = $(e.currentTarget);
+            if (!$("body").hasClass("page-register")) {
+                ACC.global.gaEvent("Prefered Store", "Select Store", $btn.attr("store-display-name"));
+            }
+
+            const storeName = $btn.attr("store-name");
+            const storeDisplayName = $btn.attr("store-display-name");
+            $.ajax({
+                url: '/store-finder/setPreferredStore?preferredStoreName=' + storeName,
+                data: {},
+                type: "get",
+                success: function (response) {
+                    if (!$("body").hasClass("page-register")) {
+                        ACC.global.gaEvent("Prefered Store", "Set Default Store", storeDisplayName);
+                    }
+                    const $registrationDiv = $(".js-select-store-register");
+                    if ($registrationDiv.length > 0) {
+                        const $registrationForm = $registrationDiv.closest("form");
+                        if ($registrationForm.length > 0) {
+                            const $preferredStoreInput = $registrationForm.find("#preferredStore");
+                            $preferredStoreInput.val(storeName);
+                            ACC.validations.validateForm($registrationForm);
+                        }
+
+                        $registrationDiv.html(response);
+                    } else if ($("body").hasClass("page-storefinderdetailsPage")) {
+                        window.location.href = window.location.origin + '/store-details/' + storeName;
+                    } else {
+                        location.reload();
+                    }
+                }
+            });
+        });
+    }
+};
+
+$(function () {
+    if ($('.js-ajax-carousel').length) {
+        if (ACC.common.isSmartEditEnabled() && ACC.common.isReprocessPageEnabled()) {
+            window.smartedit.addOnReprocessPageListener(ACC.ajaxcarousel.loadAjaxCarousel);
+            window.smartedit.reprocessPage();
+        } else {
+            ACC.ajaxcarousel.loadAjaxCarousel();
+        }
+    }
+});

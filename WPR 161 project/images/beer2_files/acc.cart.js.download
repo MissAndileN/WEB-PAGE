@@ -1,0 +1,383 @@
+ACC.cart = {
+
+    _autoload: [
+        "bindHelp",
+        "cartRestoration",
+        "bindCartPage",
+        "bindMultiDEntryRemoval",
+        "bindMultidCartProduct",
+        ["bindApplyVoucher", $("#js-voucher-apply-btn").length !== 0],
+        ["bindToReleaseVoucher", $("#js-applied-vouchers").length !== 0]
+    ],
+
+    bindHelp: function () {
+        $(document).on("click", ".js-cart-help", function (e) {
+            e.preventDefault();
+            ACC.colorbox.open(ACC.common.encodeHtml($(this).data("help")), {
+                html: $(".js-help-popup-content").text(),
+                width: "300px"
+            });
+        })
+    },
+
+    cartRestoration: function () {
+        $('.cartRestoration').click(function () {
+            window.location = $(this).data("cartUrl");
+        });
+    },
+
+    bindCartPage: function () {
+        // link to display the multi-d grid in read-only mode
+        $(document).on("click", '.js-show-editable-grid', function (event) {
+            ACC.cart.populateAndShowEditableGrid(this, event);
+        });
+    },
+
+    bindMultiDEntryRemoval: function () {
+        $(document).on("click", '.js-submit-remove-product-multi-d', function () {
+            const $form = $(document).find('#updateCartForm' + $(this).data("index"));
+            const initialCartQuantity = $form.find('input[name=initialQuantity]');
+            const cartQuantity = $form.find('input[name=quantity]');
+
+            cartQuantity.val(0);
+            initialCartQuantity.val(0);
+
+            ACC.track.trackRemoveFromCart($form.find('input[name=productCode]').val(), initialCartQuantity, cartQuantity.val());
+
+            $.ajax({
+                url: $form.attr("action"),
+                data: $form.serialize(),
+                type: $form.attr("method") ? $form.attr("method").toUpperCase() : "GET",
+                dataType: "text",
+                success: function () {
+                    location.reload();
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.log("Failed to remove quantity. Error details [" + jqXHR + ", " + textStatus + ", " + errorThrown + "]");
+                }
+            });
+        });
+    },
+
+    populateAndShowEditableGrid: function (element) {
+        const $element = $(element);
+        const itemIndex = $element.data("index");
+        const grid = $(document).find("#ajaxGrid" + itemIndex);
+
+        const gridEntries = $(document).find('#grid' + itemIndex);
+        const arrSubEntries = gridEntries.data("sub-entries").split(',');
+
+        $element.toggleClass('open');
+
+        const mapCodeQuantity = {};
+        for (let i = 0; i < arrSubEntries.length; i++) {
+            const arrValue = arrSubEntries[i].split(":");
+            mapCodeQuantity[arrValue[0]] = arrValue[1];
+        }
+
+        if (grid.children('#cartOrderGridForm').length > 0) {
+            grid.slideToggle("slow");
+        } else {
+            $.ajax({
+                url: gridEntries.data("target-url"),
+                data: {
+                    productCode: arrSubEntries[0].split(':')[0],
+                    readOnly: $element.data("readOnlyMultidGrid")
+                },
+                type: "GET",
+                dataType: 'html',
+                success: function (data) {
+                    grid.html(data);
+                    $("#ajaxGrid").removeAttr('id');
+                    const $gridContainer = grid.find(".product-grid-container");
+                    for (let i = 0; i < $gridContainer.length; i++) {
+                        ACC.cart.getProductQuantity($gridContainer.eq(i), mapCodeQuantity, i);
+                    }
+                    grid.slideDown("slow");
+                    ACC.cart.coreCartGridTableActions(element, mapCodeQuantity);
+                    ACC.productorderform.coreTableScrollActions(grid.children('#cartOrderGridForm'));
+                },
+                error: function (xht, textStatus, ex) {
+                    console.log("Failed to get variant matrix. Error details [" + xht + ", " + textStatus + ", " + ex + "]");
+                }
+            });
+        }
+    },
+
+    coreCartGridTableActions: function (element, mapCodeQuantity) {
+        ACC.productorderform.bindUpdateFutureStockButton(".update_future_stock_button");
+        ACC.productorderform.bindVariantSelect($(".variant-select-btn"), 'cartOrderGridForm');
+        const itemIndex = $(element).data("index");
+        const skuQuantityClass = '.sku-quantity';
+
+        let quantityBefore = 0;
+        const grid = $(document).find('#ajaxGrid' + itemIndex + " .product-grid-container");
+
+        grid.on('focusin', skuQuantityClass, function () {
+            quantityBefore = jQuery.trim(this.value);
+
+            $(this).parents('tr').next('.variant-summary').remove();
+            if ($(this).parents('table').data(ACC.productorderform.selectedVariantData)) {
+                ACC.productorderform.selectedVariants = $(this).parents('table').data(ACC.productorderform.selectedVariantData);
+            } else {
+                ACC.productorderform.selectedVariants = [];
+            }
+
+            if (quantityBefore === "") {
+                quantityBefore = 0;
+                this.value = 0;
+            }
+        });
+
+        grid.on('focusout keypress', skuQuantityClass, function (event) {
+            const code = event.keyCode || event.which || event.charCode;
+
+            if (code !== 13 && code !== undefined) {
+                return;
+            }
+
+            let quantityAfter = 0;
+            let gridLevelTotalPrice = "";
+
+            const currentIndex = parseInt($(this).attr("id").match("[0-9]+"));
+
+            this.value = ACC.productorderform.filterSkuEntry(this.value);
+
+            quantityAfter = jQuery.trim(this.value);
+            const variantCode = $(document).find("input[id='cartEntries[" + currentIndex + "].sku']").val();
+
+            if (isNaN(jQuery.trim(this.value))) {
+                this.value = 0;
+            }
+
+            if (quantityAfter === "") {
+                quantityAfter = 0;
+                this.value = 0;
+            }
+
+            const $gridTotalValue = grid.find("[data-grid-total-id=" + 'total_value_' + currentIndex + "]");
+            const currentPrice = $(document).find("input[id='productPrice[" + currentIndex + "]']").val();
+
+            if (quantityAfter > 0) {
+                gridLevelTotalPrice = ACC.productorderform.formatTotalsCurrency(parseFloat(currentPrice) * parseInt(quantityAfter));
+            }
+
+            $gridTotalValue.text(gridLevelTotalPrice);
+
+            const _this = this;
+            const priceSibling = $(this).siblings('.price');
+            const propSibling = $(this).siblings('.variant-prop');
+            const currentSkuId = $(this).next('.td_stock').data('sku-id');
+            const currentBaseTotal = $(this).siblings('.data-grid-total');
+
+            if (this.value !== quantityBefore) {
+                let newVariant = true;
+                ACC.productorderform.selectedVariants.forEach(function (item, index) {
+                    if (item.id === currentSkuId) {
+                        newVariant = false;
+
+                        if (_this.value === '0' || _this.value === 0) {
+                            ACC.productorderform.selectedVariants.splice(index, 1);
+                        } else {
+                            ACC.productorderform.selectedVariants[index].quantity = _this.value;
+                            ACC.productorderform.selectedVariants[index].total = ACC.productorderform.updateVariantTotal(priceSibling, _this.value, currentBaseTotal);
+                        }
+                    }
+                });
+
+                if (newVariant && this.value > 0) {
+                    // update variantData
+                    ACC.productorderform.selectedVariants.push({
+                        id: currentSkuId,
+                        size: propSibling.data('variant-prop'),
+                        quantity: _this.value,
+                        total: ACC.productorderform.updateVariantTotal(priceSibling, _this.value, currentBaseTotal)
+                    });
+                }
+            }
+            ACC.productorderform.showSelectedVariant($(this).parents('table'));
+            if (this.value > 0 && this.value !== quantityBefore) {
+                $(this).parents('table').addClass('selected');
+            } else {
+                if (ACC.productorderform.selectedVariants.length === 0) {
+                    $(this).parents('table').removeClass('selected').find('.variant-summary').remove();
+
+                }
+            }
+
+            if (quantityBefore !== quantityAfter) {
+                $.ajax({
+                    url: ACC.config.encodedContextPath + '/cart/updateMultiD',
+                    data: {
+                        productCode: variantCode,
+                        quantity: quantityAfter,
+                        entryNumber: -1
+                    },
+                    type: "POST",
+                    success: function (data) {
+                        ACC.cart.refreshCartData(data, -1, quantityAfter, itemIndex);
+                        mapCodeQuantity[variantCode] = quantityAfter;
+                    },
+                    error: function (xhr) {
+                        const redirectUrl = xhr.getResponseHeader("redirectUrl");
+                        const connection = xhr.getResponseHeader("Connection");
+                        // check if error leads to a redirect
+                        if (redirectUrl !== null) {
+                            window.location = redirectUrl;
+                            // check if error is caused by a closed connection
+                        } else if (connection === "close") {
+                            window.location.reload();
+                        }
+                    }
+                });
+            }
+        });
+    },
+
+    refreshCartData: function (cartData, entryNum, quantity, itemIndex) {
+        // if cart is empty, we need to reload the whole page
+        if (cartData.entries.length === 0) {
+            location.reload();
+        } else {
+            let form;
+
+            if (entryNum === -1) // grouped item
+            {
+                form = $(document).find('.js-qty-form' + itemIndex);
+                const productCode = form.find('input[name=productCode]').val();
+
+                let qty = 0;
+                let entryPrice = 0;
+                for (let i = 0; i < cartData.entries.length; i++) {
+                    const entry = cartData.entries[i];
+                    if (entry.product.code === productCode) {
+                        qty = entry.quantity;
+                        entryPrice = entry.totalPrice;
+                        ACC.cart.updateEntryNumbersForCartMenuData(entry);
+                        break;
+                    }
+                }
+
+                if (qty === 0) {
+                    location.reload();
+                } else {
+                    form.find(".qtyValue").text(qty);
+                    form.parent().parent().find(".js-item-total").text(entryPrice.formattedValue);
+                }
+            }
+
+            ACC.cart.refreshCartPageWithJSONResponse(cartData);
+        }
+    },
+
+    refreshCartPageWithJSONResponse: function (cartData) {
+        // refresh mini cart
+        ACC.minicart.updateMiniCartDisplay();
+        $('.js-cart-top-totals').text($("#cartTopTotalSectionTemplate").tmpl(cartData));
+        $('div .cartpotproline').remove();
+        $('div .cartproline').remove();
+        $('.js-cart-totals').remove();
+        $('#ajaxCartPotentialPromotionSection').text($("#cartPotentialPromotionSectionTemplate").tmpl(cartData));
+        $('#ajaxCartPromotionSection').text($("#cartPromotionSectionTemplate").tmpl(cartData));
+        $('#ajaxCart').text($("#cartTotalsTemplate").tmpl(cartData));
+        ACC.quote.bindQuoteDiscount();
+    },
+
+    updateEntryNumbersForCartMenuData: function (entry) {
+        let entryNumbers = "";
+        $.each(entry.entries, function (index, subEntry) {
+            if (index !== 0) {
+                entryNumbers = entryNumbers + ";";
+            }
+            entryNumbers = entryNumbers + subEntry.entryNumber;
+        });
+        $('.js-execute-entry-action-button').data('actionEntryNumbers', entryNumbers);
+    },
+
+    getProductQuantity: function (gridContainer, mapData) {
+        const tables = gridContainer.find("table");
+
+        $.each(tables, function (index, currentTable) {
+            const skus = jQuery.map($(currentTable).find("input[type='hidden'].sku"), function (o) {
+                return o.value
+            });
+            const quantities = jQuery.map($(currentTable).find("input[type='textbox'].sku-quantity"), function (o) {
+                return o
+            });
+            const selectedVariants = [];
+
+            $.each(skus, function (i, skuId) {
+                const quantity = mapData[skuId];
+                if (quantity !== undefined) {
+                    quantities[i].value = quantity;
+
+                    const currentIndex = parseInt(quantities[i].id.match("[0-9]+"));
+                    const gridTotalValue = gridContainer.find("[data-grid-total-id=" + 'total_value_' + currentIndex + "]");
+                    let gridLevelTotalPrice = "";
+                    const currentPrice = $(document).find("input[id='productPrice[" + currentIndex + "]']").val();
+                    if (quantity > 0) {
+                        gridLevelTotalPrice = ACC.productorderform.formatTotalsCurrency(parseFloat(currentPrice) * parseInt(quantity));
+                    }
+                    gridTotalValue.text(gridLevelTotalPrice);
+
+                    selectedVariants.push({
+                        id: skuId,
+                        size: $(quantities[i]).siblings('.variant-prop').data('variant-prop'),
+                        quantity: quantity,
+                        total: gridLevelTotalPrice
+                    });
+                }
+            });
+
+            if (selectedVariants.length !== 0) {
+                $.tmpl(ACC.productorderform.$variantSummaryTemplate, {
+                    variants: selectedVariants
+                }).appendTo($(currentTable).addClass('selected'));
+                $(currentTable).find('.variant-summary .variant-property').text($(currentTable).find('.variant-detail').data('variant-property'));
+                $(currentTable).data(ACC.productorderform.selectedVariantData, selectedVariants);
+            }
+        });
+
+    },
+
+    bindMultidCartProduct: function () {
+        // link to display the multi-d grid in read-only mode
+        $(document).on("click", '.showQuantityProduct', function (event) {
+            ACC.multidgrid.populateAndShowGrid(this, event, true);
+        });
+
+        // link to display the multi-d grid in read-only mode
+        $(document).on("click", '.showQuantityProductOverlay', function (event) {
+            ACC.multidgrid.populateAndShowGridOverlay(this, event);
+        });
+
+    },
+
+    bindApplyVoucher: function () {
+
+        $("#js-voucher-apply-btn").on("click", function (e) {
+            ACC.cart.handleApplyVoucher(e);
+        });
+
+        $("#js-voucher-code-text").on("keypress", function (e) {
+            const code = (e.keyCode ? e.keyCode : e.which);
+            if (code === 13) {
+                ACC.cart.handleApplyVoucher(e);
+            }
+        });
+    },
+
+    handleApplyVoucher: function () {
+        const voucherCode = $.trim($("#js-voucher-code-text").val());
+        if (voucherCode !== '' && voucherCode.length > 0) {
+            $("#applyVoucherForm").submit();
+        }
+    },
+
+    bindToReleaseVoucher: function () {
+        $('.js-release-voucher-remove-btn').on("click", function () {
+            $(this).closest('form').submit();
+        });
+    }
+
+};

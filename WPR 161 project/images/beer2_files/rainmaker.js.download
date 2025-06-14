@@ -1,0 +1,138 @@
+ACC.rainmaker = {
+
+    intervalIDs: {},
+
+    bindClickInteraction: function () {
+        $(document).on("click", ".js-rainmaker-component", function () {
+            const $component = $(this);
+            const baseUrl = $component.data("baseUrl");
+            const rainmakerId = $component.data("rainmakerId");
+
+            if (rainmakerId) {
+                const url = baseUrl + "/action/click";
+                ACC.rainmaker.postInteraction(rainmakerId, url, "ZBANNER_CLICK")
+            }
+        });
+    },
+
+    bindProductClickInteraction: function () {
+        const $productWrappers = $('.js-rainmaker-product');
+        $productWrappers.on("click", function () {
+            const $product = $(this);
+            const baseUrl = $product.data("baseUrl");
+            const rainmakerId = $product.data("rainmakerId");
+
+            if (rainmakerId) {
+                const url = baseUrl + "/action/product/click";
+                ACC.rainmaker.postInteraction(rainmakerId, url, "ZPAIDPROD_CLICK")
+            }
+        });
+    },
+
+    bindDisplayInteraction: function () {
+        const $componentWrappers = $('.js-rainmaker-component');
+        if ($componentWrappers.length > 0) {
+            $componentWrappers.each(function () {
+                const $component = $(this);
+                const componentId = $component.data("component-id");
+                const userId = $component.data("user-id");
+                const baseUrl = $component.data("baseUrl");
+                const url = baseUrl + "/action/display";
+
+                ACC.rainmaker.checkVisibility($component, componentId, userId, "ZBANNER_VIEW", url);
+            });
+        }
+    },
+
+    bindProductDisplayInteraction: function () {
+        const $productWrappers = $('.js-rainmaker-product');
+        if ($productWrappers.length > 0) {
+            $productWrappers.each(function () {
+                const $product = $(this);
+                const componentId = $product.data("component-id");
+                const userId = $product.data("user-id");
+                const baseUrl = $product.data("baseUrl");
+                const url = baseUrl + "/action/product/display";
+
+                ACC.rainmaker.checkVisibility($product, componentId, userId, "ZPAIDPROD_VIEW", url);
+            });
+        }
+    },
+
+    checkVisibility: function ($component, id, userId, interactionType, url) {
+        const componentKey = ACC.rainmaker.getComponentKey(id, userId, interactionType);
+        if (!ACC.rainmaker.intervalIDs.hasOwnProperty(componentKey)) {
+            ACC.rainmaker.intervalIDs[componentKey] = setInterval(ACC.rainmaker.registerDisplayInteraction, 500,
+                $component, componentKey, url);
+        }
+    },
+
+    registerDisplayInteraction: function ($component, componentKey, url) {
+        if (ACC.rainmaker.isElementVisible($component)) {
+            const intervalId = ACC.rainmaker.intervalIDs[componentKey];
+            clearInterval(intervalId);
+
+            const rainmakerId = $component.data("rainmakerId");
+            if (rainmakerId) {
+                ACC.rainmaker.postInteraction(rainmakerId, url, "ZBANNER_VIEW");
+            }
+        }
+    },
+
+    postInteraction: function (rainmakerId, url, interactionType) {
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: {rainmakerId: rainmakerId},
+            error: function () {
+                console.error("An error occurred when registering " + interactionType + " for rainmaker id " + rainmakerId);
+            }
+        });
+    },
+
+    isElementVisible: function ($component) {
+        const win = $(window);
+
+        // gets the user browser screen dimension in pixel
+        const viewport = {
+            top: win.scrollTop(),
+            left: win.scrollLeft()
+        };
+
+        viewport.right = viewport.left + win.width();
+        viewport.bottom = viewport.top + win.height();
+
+        const elementBounds = $component.offset();
+        elementBounds.right = elementBounds.left + $component.outerWidth();
+        elementBounds.bottom = elementBounds.top + $component.outerHeight();
+
+        // Check if one pixel of element is visible
+        const isInScreen = (viewport.right >= elementBounds.left &&
+            viewport.left <= elementBounds.right &&
+            viewport.bottom >= elementBounds.top && viewport.top <= elementBounds.bottom);
+
+        return $component.is(":visible") && isInScreen;
+    },
+
+    getComponentKey: function (id, userId, interactionType) {
+        return id + "_" + userId + "_" + interactionType;
+    }
+
+};
+
+
+$(function () {
+    if ($('.js-rainmaker-component').length) {
+        if (!ACC.common.isSmartEditEnabled()) {
+            ACC.rainmaker.bindClickInteraction();
+            ACC.rainmaker.bindDisplayInteraction();
+        }
+    }
+
+    if ($('.js-rainmaker-product').length) {
+        if (!ACC.common.isSmartEditEnabled()) {
+            ACC.rainmaker.bindProductClickInteraction();
+            ACC.rainmaker.bindProductDisplayInteraction();
+        }
+    }
+});

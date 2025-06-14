@@ -1,0 +1,25 @@
+ACC.personalization = {
+
+    _autoload: [
+        ["showPersonalizationComponents", $(".js-personalization-container").length > 0]
+    ],
+
+    showPersonalizationComponents: function () {
+        $(".js-personalization-container").each(function () {
+            if ($(this).find(".js-hide-personalization").length === 0) {
+                $(this).removeClass("hidden");
+            }
+        });
+    },
+
+    displayHiddenPersonalizationComponent: function (component) {
+        if (component.hasClass("js-hide-personalization")) {
+            component.removeClass("js-hide-personalization");
+
+            const $hiddenParents = component.parents(".js-personalization-container");
+            $hiddenParents.each(function () {
+                $(this).removeClass("hidden");
+            });
+        }
+    }
+};

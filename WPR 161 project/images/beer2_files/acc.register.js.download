@@ -1,0 +1,838 @@
+ACC.register = {
+    _autoload: [
+        ["validateRegister", $("#shrRegisterForm").length],
+        ["postValidateDetailsStep", $("#shrRegisterForm").length],
+        ["postValidateCommunicationStep", $("#shrRegisterForm").length],
+        ["getPreviousRegistrationStep", $("#shrRegisterForm").length],
+        ["acceptTermsRegister", $("#shrRegisterForm").length],
+        ["saidPassportNumber", $("#shrRegisterForm").length > 0],
+        ["xtraSaveNumberOnlyDigitsInputs", $("#shrRegisterForm").length],
+        ["xtraSaveNumberAutoInsert", $("#shrRegisterForm").length],
+        "gaEventsTriggers",
+        ["handleInterestClicks", $("#shrRegisterForm").length],
+        ["bindMarketingConsent", $("#shrRegisterForm").length],
+        ["bindMarketingConsentValidation", $("#shrRegisterForm").length],
+        ["bindRegisterOtpSubmit", $("#shrRegisterForm").length],
+        ["bindResendOtpAction", $("#shrRegisterForm").length],
+        ["bindUseCrossBannerCard", $("#usingCrossBannerCard").length],
+        ["postValidateStoreInterestsStep", $("#shrRegisterForm").length]
+    ],
+
+    checkboxForm: false,
+    checkASMForm: true,
+    preferenceRequired: false,
+    preferenceSelected: false,
+    interests: [],
+
+    getPreviousRegistrationStep: function () {
+        $(document).on("click", "#registerPrevious", function (e) {
+            e.preventDefault();
+
+            const $form = $("#shrRegisterForm");
+            const formData = $form.serialize();
+            const url = $(this).attr("href");
+
+            ACC.global.showLoadingBackgroundMenu();
+            $.ajax({
+                url: url,
+                type: "POST",
+                data: formData,
+                success: function (response) {
+                    $(".loading-background").hide();
+
+                    const $response = $(response);
+                    if ($response.find(".js-header-registration").length > 0) {
+                        $(".js-header-login-form-section").html($response);
+                    } else if ($response.find(".js-promo-alerts-registration").length > 0) {
+                        $(".js-promo-alerts-flyout-content").html($response);
+                    } else {
+                        $(".js-register-form-section__block").html($response);
+                    }
+
+                    ACC.global.loadActionsForm();
+                    ACC.global.loadInputEffect();
+                    ACC.register.validateRegister();
+                    ACC.register.xtraSaveNumberAutoInsert();
+                    ACC.register.acceptTermsRegister();
+                    ACC.register.bindMarketingConsent();
+                    ACC.register.bindMarketingConsentValidation();
+                    ACC.dataPicker.datePicker();
+                    ACC.storefinder.showStoreResults();
+                    ACC.storefinder.bindFindStoreNearMe();
+                    ACC.storefinder.storeFinderInputState();
+                    ACC.register.gaEventsTriggers();
+                    ACC.register.bindUseCrossBannerCard();
+                }
+            });
+        });
+    },
+
+    postValidateDetailsStep: function () {
+        $(document).on("click", ".js-register-submit", function (e) {
+            const $registerSubmit = $(this);
+            const $form = $("#shrRegisterForm");
+            e.preventDefault();
+
+            const authMethod = $registerSubmit.data("authMethod");
+            if (authMethod) {
+                $form.find("#authenticationMethod").val(authMethod);
+            }
+
+            const url = $form.attr("action");
+            const formData = $form.serialize();
+
+            ACC.global.showLoadingBackgroundMenu();
+            $.ajax({
+                url: url,
+                type: "POST",
+                data: formData,
+                success: function (response) {
+                    $(".loading-background").hide();
+
+                    const $response = $(response);
+                    if ($response.find(".js-header-registration").length > 0) {
+                        $(".js-header-login-form-section").html($response);
+                        $(".js-header-login-form-section").removeClass("profile__menu__start-here--otp-pass");
+                        if (authMethod === "otp") {
+                            $(".js-header-login-form-section").addClass("profile__menu__start-here--otp");
+                        } else if (authMethod === "password") {
+                            $(".js-header-login-form-section").addClass("profile__menu__start-here--email-pass");
+                        }
+                        if ($registerSubmit.hasClass("button-register-step-2")) {
+                            $(".js-header-login-form-section").addClass("profile__menu__start-here--interest");
+                        }
+                    } else if ($response.find(".js-promo-alerts-registration").length > 0) {
+                        $(".js-promo-alerts-flyout-content").html($response);
+                    } else {
+                        $(".js-register-form-section__block").html($response);
+                    }
+
+                    ACC.global.loadActionsForm();
+                    ACC.global.loadInputEffect();
+                    ACC.register.validateRegister();
+                    ACC.register.xtraSaveNumberAutoInsert();
+                    ACC.register.acceptTermsRegister();
+                    ACC.register.bindMarketingConsent();
+                    ACC.register.bindMarketingConsentValidation();
+                    ACC.dataPicker.datePicker();
+                    ACC.storefinder.showStoreResults();
+                    ACC.storefinder.bindFindStoreNearMe();
+                    ACC.storefinder.storeFinderInputState();
+                    ACC.register.gaEventsTriggers();
+                    ACC.register.bindUseCrossBannerCard();
+                    ACC.otp.reloadOtpBindings();
+                    ACC.otp.bindOtpCountdown();
+                    ACC.global.jsCountdown();
+                }
+            });
+        });
+    },
+
+    postValidateCommunicationStep: function () {
+        $(document).on("click", ".js-register-submit-communication", function (e) {
+            const $form = $("#shrRegisterForm");
+            e.preventDefault();
+
+            const url = $form.attr("action");
+            const formData = $form.serializeArray();
+            const formObject = ACC.global.convertFormToJSON(formData);
+            formObject["interests"] = ACC.register.interests;
+
+            if (formObject.hasOwnProperty("customerPermissions") && !Array.isArray(formObject["customerPermissions"])) {
+                formObject["customerPermissions"] = [formObject["customerPermissions"]];
+            }
+
+            ACC.global.showLoadingBackgroundMenu();
+            $.ajax({
+                url: url,
+                type: "POST",
+                dataType: 'html',
+                contentType: 'application/json',
+                mimeType: 'application/json',
+                data: JSON.stringify(formObject),
+                success: function (response) {
+                    $(".loading-background").hide();
+
+                    const $response = $(response);
+                    if ($response.find(".js-header-registration").length > 0) {
+                        $(".js-header-login-form-section").html($response);
+                    } else if ($response.find(".js-promo-alerts-registration").length > 0) {
+                        $(".js-promo-alerts-flyout-content").html($response);
+                    } else {
+                        $(".js-register-form-section__block").html($response);
+                    }
+
+                    ACC.global.jsCountdown();
+                    ACC.register.gaEventsTriggers();
+                }
+            });
+        });
+    },
+
+    saidPassportNumber: function () {
+        $(document).on("click", ".js-said-passport", function () {
+            const dataNumberSection = $(this).data("number");
+            switch (dataNumberSection) {
+                case "passportNumber":
+                    sessionStorage.setItem("registerShowSaidNumber", "false");
+                    break;
+                case "said":
+                    sessionStorage.setItem("registerShowSaidNumber", "true");
+                    break;
+            }
+            const saidPassportNumber = $(".said-passport-number");
+            saidPassportNumber.addClass("hidden");
+            saidPassportNumber.find("input").val("");
+            saidPassportNumber.find("input").addClass("not-active");
+            saidPassportNumber.find("input").removeClass("used");
+
+            const elementDataNumberSection = $("#" + dataNumberSection);
+            elementDataNumberSection.removeClass("hidden");
+            elementDataNumberSection.find("input").removeClass("not-active");
+            elementDataNumberSection.find("input").removeClass("active");
+        });
+    },
+
+    bindMarketingConsent: function () {
+        $("#sendMeUpdates").on("change", function () {
+            const $marketingConsentCheckBox = $(this);
+
+            if ($marketingConsentCheckBox.is(":checked")) {
+                ACC.register.enableMarketingPermissions();
+                ACC.register.preferenceRequired = true;
+            } else {
+                ACC.register.initializeMarketingConsents();
+            }
+
+            ACC.register.handleMarketingConsentChange();
+        });
+    },
+
+    bindMarketingConsentValidation: function () {
+        $("input[id^=type]").on("change", function () {
+            const permissionCode = $(this).data("code");
+            const option = $('#js-hidden-permissions option[value="' + permissionCode + '"]');
+            const $marketingConsentCheckBox = $("#sendMeUpdates");
+
+            if ($marketingConsentCheckBox.is(":checked") && $(this).is(":checked")) {
+                ACC.register.preferenceSelected = true;
+                option.attr('selected', 'selected');
+            } else {
+                ACC.register.preferenceSelected = false;
+                option.removeAttr('selected');
+
+                $("input[id^=type]").each(function () {
+                    if ($(this).is(":checked")) {
+                        ACC.register.preferenceSelected = true;
+                        return false;
+                    }
+                });
+            }
+
+            ACC.register.handleMarketingConsentChange();
+        });
+    },
+
+    xtraSaveNumberOnlyDigitsInputs: function () {
+        $(document).on("keyup", "input.js-xtra-saving-input", function () {
+            const $this = $(this);
+            const $target = $("#loyaltyCard");
+            let str = "";
+
+            $("input[id^=xtraSavingCard_]").each(function () {
+                str = str + $(this).val();
+            });
+            $target.val(str);
+            if ($target.val() >= 0) {
+                ACC.register.validateLoyaltyCard($target.val())
+            }
+            if ($this.val().length === 4 && $this.data("next-target") !== "") {
+                $("#" + $this.data("next-target")).focus();
+            }
+        });
+    },
+
+    xtraSaveNumberAutoInsert: function () {
+        const $usingCrossBannerCard = $("#usingCrossBannerCard");
+        if (!$usingCrossBannerCard.length || !$usingCrossBannerCard.is(":checked")) {
+            let loyaltyCard = $("#loyaltyCard").val();
+            $("input[id^=xtraSavingCard_]").each(function () {
+                $(this).val(loyaltyCard.substring(0, 4));
+                loyaltyCard = loyaltyCard.substring(4);
+            });
+        } else {
+            ACC.validations.validateForm($("#shrRegisterForm"));
+        }
+    },
+
+    acceptTermsRegister: function () {
+        $("#termsAndConditionsLink").on("change", function () {
+            ACC.register.checkboxForm = true;
+            if (ACC.config.asmLoggedIn === "true") {
+                const $target = $("#loyaltyCard");
+                if (!$target.hasClass("not-active")) {
+                    ACC.register.validateLoyaltyCard($target.val())
+                } else {
+                    ACC.validations.validateForm($("#shrRegisterForm"));
+                }
+            } else {
+                ACC.validations.validateForm($("#shrRegisterForm"));
+            }
+        });
+    },
+
+    validateLoyaltyCard: function (value) {
+        const label = $(".js-loyalty-card .js-label-error");
+        if (value.length !== 16 && (value.length === 0 && ACC.config.asmLoggedIn === "true")) {
+            ACC.register.addErrorLoyaltyCard(label, value);
+        } else {
+            if (value.length === 0 && $("#usingCrossBannerCard").length
+                && !$("#usingCrossBannerCard").hasClass("not-active")) {
+                label.hide();
+
+                const button = $("#shrRegisterForm").find("[id^=formButton]");
+                button.attr('disabled', true);
+            } else if (value.length === 0 || (value.length === 16 && ACC.validations.luhnCheck(value, 16))) {
+                ACC.validations.validateForm($("#shrRegisterForm"));
+                ACC.register.checkASMForm = true;
+                label.hide();
+            } else {
+                ACC.register.checkASMForm = false;
+                ACC.register.addErrorLoyaltyCard(label, value);
+            }
+        }
+    },
+
+    addErrorLoyaltyCard: function (label, value) {
+        if (value.length === 0) {
+            label.html(loc("form.loyaltyCard.required")).show();
+        } else {
+            label.html(loc("form.loyaltyCard.invalid")).show();
+        }
+        $(".js-register-submit").prop("disabled", true);
+    },
+
+    validateRegister: function () {
+        const $said = $("#said");
+        const $passportNumber = $("#passportNumber");
+
+        if ($said.is(":hidden")) {
+            $said.find("input").addClass("not-active");
+            $passportNumber.find("input").removeClass("not-active");
+        } else if ($passportNumber.is(":hidden")) {
+            $said.find("input").removeClass("not-active");
+            $passportNumber.find("input").addClass("not-active");
+        }
+
+        const $shrRegisterForm = $("#shrRegisterForm");
+
+        $.validator.addMethod("alphanumericsOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.isAlphanumeric(value);
+        }, loc("form.validator.alphanumericsOnly"));
+
+        $.validator.addMethod("lettersOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.lettersOnly(value);
+        }, loc("form.validator.lettersOnly"));
+
+        $.validator.addMethod("numbersOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.numbersOnly(value);
+        }, loc("form.validator.numbersOnly"));
+
+        $.validator.addMethod("isValidSAId", function (value) {
+            return ACC.validations.luhnCheck(value, 13);
+        });
+
+        $.validator.addMethod("isNotValidSAId", function (value) {
+            return !ACC.validations.luhnCheck(value, 13);
+        });
+
+        $.validator.addMethod("minAge", function (value) {
+            return ACC.validations.isOlderEnough(value);
+        }, loc("form.validator.minAge"));
+
+        $.validator.addMethod('validateDate', function (value, element) {
+            return this.optional(element) || ACC.validations.isValidDate(value);
+        }, loc("form.validator.validateDate"));
+
+        $.validator.addMethod("fullEmail", function (value, element) {
+            return this.optional(element) || ACC.validations.validateEmail(value);
+        }, loc("input.enter.email"));
+
+        $.validator.addMethod("passwordGuidelines", function (value, element) {
+            return this.optional(element) || ACC.validations.isValidPassword(value);
+        }, loc("generic.invalid.password"));
+
+        $shrRegisterForm.validate({
+            ignore: '.not-active',
+            errorElement: 'span',
+            errorClass: 'sr-error',
+            focusCleanup: true,
+            rules: {
+                firstName: {
+                    required: true,
+                    lettersOnly: true,
+                    minlength: 2
+                },
+                lastName: {
+                    required: true,
+                    lettersOnly: true,
+                    minlength: 2
+                },
+                email: {
+                    required: ACC.config.asmLoggedIn !== "true",
+                    fullEmail: true
+                },
+                mobileNumber: {
+                    required: true,
+                    minlength: 9,
+                    maxlength: 10,
+                    number: true,
+                    numbersOnly: true
+                },
+                saIdNumber: {
+                    number: true,
+                    numbersOnly: true,
+                    minlength: 13,
+                    maxlength: 13,
+                    isValidSAId: true
+                },
+                birthDate: {
+                    required: true,
+                    minAge: true,
+                    validateDate: true
+                },
+                passport: {
+                    required: true,
+                    minlength: 6,
+                    maxlength: 20,
+                    alphanumericsOnly: true,
+                    isNotValidSAId: true
+                },
+                termsCheck: {
+                    required: true
+                },
+                preferredStore: {
+                    required: true
+                },
+                pwd: {
+                    passwordGuidelines: true
+                }
+            },
+            messages: {
+                termsCheck: {
+                    required: loc("form.termsAndConditionsLink.required")
+                },
+                saIdNumber: {
+                    isValidSAId: loc("form.saIdNumber.isValidSAId")
+                },
+                mobileNumber: {
+                    minlength: loc("form.mobileNumber.minlength")
+                },
+                passport: {
+                    minlength: loc("form.passport.min.length"),
+                    isNotValidSAId: loc("form.passport.isNotValidSAId")
+                },
+                preferredStore: {
+                    required: loc("form.preferredStore.required")
+                }
+            },
+            errorPlacement: function (error, element) {
+                const srSwitch = element.closest(".sr-switch");
+                if (srSwitch.length > 0) {
+                    srSwitch.append(error)
+                } else {
+                    element.parent().append(error);
+                }
+            },
+            onkeyup: function () {
+                if (ACC.register.checkASMForm) {
+                    ACC.validations.validateForm($shrRegisterForm);
+
+                    const $loyaltyCard = $("#loyaltyCard");
+                    ACC.register.validateLoyaltyCard($loyaltyCard.val());
+                } else if ($("#termsAndConditionsLink").length) {
+                    if (ACC.register.checkboxForm === true && ACC.register.checkASMForm) {
+                        ACC.validations.validateForm($shrRegisterForm);
+                    }
+                } else if ($("#preferredStore").length) {
+                    $(".sr-error").remove();
+                }
+                if ($("#pwd").length) {
+                    $("#pwd").valid();
+                }
+            },
+            onfocusout: function (element) {
+                if ($(element).hasClass("js-validate-focus")) {
+                    this.element(element);
+                }
+            }
+        });
+    },
+
+    handleInterestClicks: function () {
+        $(document).on("click", ".js-preference", function () {
+            const $interest = $(this);
+            const previouslySelected = $interest.hasClass('form-section__selected');
+            ACC.register.modifySelectedInterest($interest, previouslySelected);
+        });
+    },
+
+    modifySelectedInterest: function ($interest, previouslySelected) {
+        const code = $interest.data('code');
+        const name = $interest.data('name');
+
+        const interestObj = {
+            code: code,
+            name: name
+        };
+
+        if (previouslySelected) {
+            $interest.removeClass('form-section__selected');
+            interestObj['active'] = false;
+        } else {
+            $interest.addClass('form-section__selected');
+            interestObj['active'] = true;
+        }
+
+        ACC.register.addInterest(interestObj);
+    },
+
+    gaEventsTriggers: function () {
+        const $body = $("body");
+        if (!$body.hasClass("page-login") && !$body.hasClass("page-registerEnterDetails")
+            && !$body.find(".js-header-registration") && !$body.find(".js-promo-alerts-registration")) {
+            sessionStorage.removeItem("gaRegisterLabel");
+            sessionStorage.removeItem("LoginWithoutPassword");
+        } else {
+            if (sessionStorage.getItem("gaRegisterLabel") === null) {
+                sessionStorage.setItem("gaRegisterLabel", "Home Sign up");
+            }
+        }
+
+        sessionStorage.removeItem("registerStoreSelection");
+        const linkRegisterNavMenu = $(".link-ga-register-label");
+        if (sessionStorage.getItem("gaRegisterXS") !== "" && sessionStorage.getItem("gaRegisterXS") !== null) {
+            linkRegisterNavMenu.attr("data-galabel", "XtraSavings Sign Up");
+            sessionStorage.setItem("gaRegisterLabel", "XtraSavings Sign Up");
+            sessionStorage.setItem("gaRegisterXS", "");
+        }
+        linkRegisterNavMenu.on("click", function () {
+            const dataGaLabel = $(this).data("galabel");
+            sessionStorage.setItem("gaRegisterLabel", dataGaLabel);
+
+            if ($(this).hasClass("link-ga-register-label--footer")) {
+                sessionStorage.setItem("gaRegisterLabel", "Home Sign up");
+            } else if ($(this).hasClass("link-ga-register-label--xs")) {
+                sessionStorage.setItem("gaRegisterXS", "true");
+            }
+        });
+
+        const buttonRegiterStep1 = $(".button-register-step-1");
+        buttonRegiterStep1.on("click", function () {
+            const formRegisterStep1 = $(this).parents("form");
+
+            const registerStep1Data = {
+                "Name": formRegisterStep1.find("[name=firstName]").val(),
+                "Surname": formRegisterStep1.find("[name=lastName]").val(),
+                "Email": formRegisterStep1.find("[name=email]").val(),
+                "Mobile": formRegisterStep1.find("[name=mobileNumber]").val(),
+                "Password": formRegisterStep1.find("[name=pwd]").val(),
+                "ID": formRegisterStep1.find("[name=saIdNumber]").val(),
+                "Passport": formRegisterStep1.find("[name=passport]").val(),
+                "DOB": formRegisterStep1.find("[name=birthDate]").val(),
+                "LinkedCard": formRegisterStep1.find("[name=loyaltyCard]").val()
+            };
+
+            let gaRegisterStep1Action = "";
+
+            $.each(registerStep1Data, function (index, element) {
+                if (element !== "") {
+                    gaRegisterStep1Action += index + " > ";
+                }
+            });
+
+            gaRegisterStep1Action += "Create Account";
+
+            ACC.global.gaEvent("New User", gaRegisterStep1Action, sessionStorage.getItem("gaRegisterLabel"));
+        });
+
+        $(document).on("click", ".js-set-preferred-store-btn", function () {
+            if ($("body").hasClass("page-registerEnterDetails")) {
+                sessionStorage.setItem("registerStoreSelection", $(this).attr("store-display-name"));
+            }
+        });
+
+        $(document).on("click", ".js-register-submit-communication", function () {
+            let interestsList = "";
+            $.each($(".js-preference"), function (index, element) {
+                const preference = $(element);
+                if (preference.hasClass("form-section__selected")) {
+                    interestsList += preference.find(".preference-text").text() + "; ";
+                }
+            });
+            interestsList = interestsList.substr(0, interestsList.length - 2);
+            if (interestsList !== "") {
+                ACC.global.gaEvent("Personalise", "Select Interests", interestsList);
+            }
+        });
+
+        $(document).on("click", ".js-cross-banner-submit-preferences", function () {
+            if (sessionStorage.getItem("registerStoreSelection") !== null) {
+                ACC.global.gaEvent("Personalise", "Store Selection", sessionStorage.getItem("registerStoreSelection"));
+            }
+
+            let interestsList = "";
+            $.each($(".js-preference"), function (index, element) {
+                const preference = $(element);
+                if (preference.hasClass("form-section__selected")) {
+                    interestsList += preference.find(".preference-text").text() + "; ";
+                }
+            });
+            interestsList = interestsList.substr(0, interestsList.length - 2);
+            if (interestsList !== "") {
+                ACC.global.gaEvent("Personalise", "Select Interests", interestsList);
+            }
+        })
+
+        // Login without password - Step 1
+        const mobileNumberIdentificationSubmit = $(".one-time-pin-submit");
+        if (mobileNumberIdentificationSubmit.length > 0) {
+            mobileNumberIdentificationSubmit.on("click", function () {
+                ACC.global.gaEvent("Login", "Login without password", "OTP entered");
+            });
+        }
+
+        const buttonResendLink = $(".button-resend-link");
+        if (buttonResendLink.length > 0) {
+            buttonResendLink.on("click", function () {
+                ACC.global.gaEvent("Login", "Login without password - Step 3", "Resend OTP");
+            });
+        }
+
+        // Login without password - Step 4
+        const setPasswordSubmit = $(".set-password-submit");
+        if (setPasswordSubmit.length > 0) {
+            setPasswordSubmit.on("click", function () {
+                ACC.global.gaEvent("Login", "Login without password - Step 4", "Set password");
+                sessionStorage.setItem("LoginWithoutPassword", "true");
+            });
+        }
+    },
+
+    handleMarketingConsentChange: function () {
+        const $jsMarketingConsent = $(".js-marketing-consent");
+        if ($jsMarketingConsent) {
+            const $label = $jsMarketingConsent.find(".js-label-error");
+            const $backendLabel = $jsMarketingConsent.find("span[class='sr-error']");
+            const $shrRegisterForm = $("#shrRegisterForm");
+
+            if (!ACC.register.preferenceSelected && ACC.register.preferenceRequired) {
+                $label.html(loc("form.marketing.consent.invalid")).show();
+
+                const button = $shrRegisterForm.find("#formButton");
+                button.attr('disabled', true);
+            } else {
+                $label.hide();
+                if ($backendLabel.length) {
+                    $backendLabel.hide();
+                }
+
+                ACC.validations.validateForm($shrRegisterForm);
+            }
+        }
+    },
+
+    initializeMarketingConsents: function () {
+        $("input[id^=type]").each(function () {
+            $(this).prop("disabled", true);
+            $(this).prop("checked", false);
+
+            const permissionCode = $(this).data("code");
+            const option = $('#js-hidden-permissions option[value="' + permissionCode + '"]');
+            option.removeAttr('selected');
+        });
+
+        ACC.register.preferenceRequired = false;
+        ACC.register.preferenceSelected = false;
+    },
+
+    enableMarketingPermissions: function () {
+        $("input[id^=type]").each(function () {
+            $(this).removeAttr("disabled");
+            $(this).click();
+        });
+    },
+
+    addInterest: function (interest) {
+        const found = ACC.register.findElement(ACC.register.interests, interest);
+        if (!found) {
+            ACC.register.interests.push(interest);
+        } else {
+            const index = ACC.register.interests.indexOf(found);
+            ACC.register.interests.splice(index, 1);
+        }
+    },
+
+    findElement: function (list, elementToFind) {
+        return list.find(function (element) {
+            return element.code === elementToFind.code;
+        });
+    },
+
+    bindUseCrossBannerCard: function () {
+        const $usingCrossBannerCard = $("#usingCrossBannerCard");
+
+        if ($usingCrossBannerCard.is(":checked")) {
+            const $checkersCard = $(".checkers-card");
+            $checkersCard.addClass("shoprite-card-used");
+        }
+
+        $usingCrossBannerCard.on("change", function () {
+            const $loyaltyCard = $("#loyaltyCard");
+            const $shrRegisterForm = $("#shrRegisterForm");
+            const $checkersCard = $(".checkers-card");
+            let $shopriteCardInput = $checkersCard.find("#shopriteCardInput");
+            let $xtraSavingsInputs = $checkersCard.find(".xtra-savings-card .form-section__input");
+
+            if ($usingCrossBannerCard.is(":checked")) {
+                $checkersCard.addClass("shoprite-card-used");
+                $shopriteCardInput.removeAttr("disabled");
+                $xtraSavingsInputs.attr("disabled", true);
+                $loyaltyCard.val("");
+                $("#xtraSavingCard_1").val("");
+                $("#xtraSavingCard_2").val("");
+                $("#xtraSavingCard_3").val("");
+                $("#xtraSavingCard_4").val("");
+                $(".js-label-error").hide();
+                ACC.validations.validateForm($shrRegisterForm);
+            } else {
+                $checkersCard.removeClass("shoprite-card-used");
+                $shopriteCardInput.attr("disabled", true);
+                $xtraSavingsInputs.removeAttr("disabled");
+            }
+        });
+    },
+
+    bindRegisterOtpSubmit: function () {
+        $(document).on("click", ".js-register-otp .js-otp-submit", function (e) {
+            e.preventDefault();
+            const $shrRegisterForm = $("#shrRegisterForm");
+            const $registerOtpInput = $shrRegisterForm.find("#otp");
+            const $otpInput = $("#oneTimePin");
+            $registerOtpInput.val($otpInput.val());
+
+            const url = $shrRegisterForm.attr("action");
+            const formData = $shrRegisterForm.serialize();
+
+            ACC.global.showLoadingBackgroundMenu();
+            $.ajax({
+                url: url,
+                type: "POST",
+                data: formData,
+                success: function (response) {
+                    $(".loading-background").hide();
+
+                    const $response = $(response);
+                    if ($response.find(".js-header-registration").length > 0) {
+                        $(".js-header-login-form-section").html($response);
+                        $(".js-header-login-form-section").removeClass("profile__menu__start-here--otp").addClass("profile__menu__start-here--otp-pass")
+                    } else if ($response.find(".js-promo-alerts-registration").length > 0) {
+                        $(".js-promo-alerts-flyout-content").html($response);
+                    } else {
+                        $(".js-register-form-section__block").html($response);
+                    }
+
+                    ACC.global.loadActionsForm();
+                    ACC.global.loadInputEffect();
+                    ACC.otp.reloadOtpBindings();
+                    ACC.otp.bindOtpCountdown();
+                    ACC.register.validateRegister();
+                    ACC.register.acceptTermsRegister();
+                    ACC.register.bindMarketingConsent();
+                    ACC.register.bindMarketingConsentValidation();
+                    ACC.register.gaEventsTriggers();
+                    ACC.storefinder.showStoreResults();
+                    ACC.storefinder.bindFindStoreNearMe();
+                    ACC.storefinder.storeFinderInputState();
+                }
+            });
+        });
+    },
+
+    bindResendOtpAction: function () {
+        $(document).on('click', '.js-ajax-register-resend-otp', function (e) {
+            e.preventDefault();
+            const $shrRegisterForm = $("#shrRegisterForm");
+            const formData = $shrRegisterForm.serialize();
+
+            ACC.global.showLoadingBackgroundMenu();
+            $.ajax({
+                type: 'POST',
+                url: $(this).attr("href"),
+                data: formData,
+                success: function (html) {
+                    $(".loading-background").hide();
+
+                    const $response = $(html);
+                    if ($response.find(".js-header-registration").length > 0) {
+                        $(".js-header-login-form-section").html($response);
+                    } else if ($response.find(".js-promo-alerts-registration").length > 0) {
+                        $(".js-promo-alerts-flyout-content").html($response);
+                    } else {
+                        $(".js-register-form-section__block").html($response);
+                    }
+
+                    ACC.otp.reloadOtpBindings();
+                    ACC.otp.bindOtpCountdown();
+                }
+            });
+        });
+    },
+
+    postValidateStoreInterestsStep: function () {
+        $(document).on("click", ".js-cross-banner-submit-preferences", function (e) {
+            const $form = $("#shrRegisterForm");
+            e.preventDefault();
+
+            const url = $form.attr("action");
+
+            ACC.global.showLoadingBackgroundMenu();
+            $.ajax({
+                url: url,
+                type: "POST",
+                dataType: 'html',
+                contentType: 'application/json',
+                mimeType: 'application/json',
+                data: JSON.stringify({
+                    'preferences': ACC.register.interests,
+                    'preferredStore': $form.find('#preferredStore').val()
+                }),
+                success: function (response) {
+                    $(".loading-background").hide();
+
+                    const $response = $(response);
+                    if ($response.find(".js-header-registration").length > 0) {
+                        $(".js-header-login-form-section").html($response);
+                    } else if ($response.find(".js-promo-alerts-registration").length > 0) {
+                        $(".js-promo-alerts-flyout-content").html($response);
+                    } else {
+                        $(".js-register-form-section__block").html($response);
+                    }
+
+                    if ($response.find("#preferredStore").length > 0) {
+                        ACC.global.loadActionsForm();
+                        ACC.global.loadInputEffect();
+                        ACC.register.validateRegister();
+                        ACC.storefinder.showStoreResults();
+                        ACC.storefinder.bindFindStoreNearMe();
+                        ACC.storefinder.storeFinderInputState();
+                    } else {
+                        ACC.global.jsCountdown();
+                        ACC.register.gaEventsTriggers();
+                    }
+                }
+            });
+        });
+    }
+
+};

@@ -1,0 +1,520 @@
+ACC.account = {
+
+    _autoload: [
+        ["validateUpdatedPassword", $("#updatePasswordForm").length > 0],
+        ["validateProfileEdit", $("#shrProfileEditForm").length > 0],
+        "validateStopCardPasswordLength",
+        ["airtimeModals", $(".airtime-modal").length],
+        ["bindSwipeForCoverBeneficiariesAction", $(".js-item-swipe-for-cover").length],
+        ["bindBeneficiaryOptionsAction", $(".js-item-swipe-for-cover").length],
+        ["validateBeneficiaryForm", $(".js-item-swipe-for-cover").length],
+        ["bindSubmitSwipeForCover", $(".js-item-swipe-for-cover").length],
+        ["bindDeactivateSwipeForCover", $(".js-item-swipe-for-cover").length],
+        ["bindCancelMembershipReasonsAction", $("#cancelMembershipForm").length],
+        ["bindCancelMembershipFreeTextAction", $("#cancelMembershipForm").length],
+        ["bindSideNavVisibilityAction", $(".js-sidenav-children").length],
+        ["enabledUpdateDetailsButton", $("#AccountDetails").length],
+        ["validateStopCardVerificationPassword", $("#passwordVerificationForm").length > 0]
+    ],
+
+    validateUpdatedPassword: function () {
+        const $currentPassword = $("#currentPassword");
+        const $newPassword = $("#newPassword");
+        $(".js-password-validation").on("keyup", function () {
+            if ($currentPassword.val().length >= 8 && ACC.validations.isValidPassword($newPassword.val())) {
+                $(".js-register-validate").prop("disabled", false);
+            } else {
+                $(".js-register-validate").prop("disabled", true);
+            }
+        });
+
+        const $updatePasswordForm = $("#updatePasswordForm");
+
+        $.validator.addMethod("passwordGuidelines", function (value, element) {
+            return this.optional(element) || ACC.validations.isValidPassword(value);
+        }, loc("generic.invalid.password"));
+
+        $updatePasswordForm.validate({
+            ignore: '.not-active',
+            errorElement: 'span',
+            errorClass: 'sr-error',
+            rules: {
+                currentPassword: {
+                    required: true,
+                    minlength: 8,
+                    maxlength: 128
+                },
+                newPassword: {
+                    required: true,
+                    passwordGuidelines: true
+                },
+            },
+            onkeyup: function () {
+                ACC.validations.validateForm($updatePasswordForm);
+            }
+        });
+    },
+
+    validateProfileEdit: function () {
+        const $form = $("#shrProfileEditForm");
+
+        $.validator.addMethod("alphanumericsOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.isAlphanumeric(value);
+        }, loc("form.validator.alphanumericsOnly"));
+
+        $.validator.addMethod("lettersOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.lettersOnly(value);
+        }, loc("form.validator.lettersOnly"));
+
+        $.validator.addMethod("numbersOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.numbersOnly(value);
+        }, loc("form.validator.numbersOnly"));
+
+        $.validator.addMethod("isValidSAId", function (value) {
+            return ACC.validations.luhnCheck(value, 13);
+        });
+
+        $.validator.addMethod("isNotValidSAId", function (value) {
+            return !ACC.validations.luhnCheck(value, 13);
+        });
+
+        $.validator.addMethod("minAge", function (value) {
+            return ACC.validations.isOlderEnough(value);
+        }, loc("form.validator.minAge"));
+
+        $.validator.addMethod('validateDate', function (value, element) {
+            return this.optional(element) || ACC.validations.isValidDate(value);
+        }, loc("form.validator.validateDate"));
+
+        let maxLength = 10;
+        $('#mobileNumber').on('keypress', function (evt) {
+            const $this = $(this);
+            const inputValue = $this.val();
+
+            let zeroAfterNineDigits = false;
+            if (inputValue.length === 9 && evt.key === "0" && this.selectionStart === 0) {
+                maxLength = 10;
+                zeroAfterNineDigits = true;
+            } else {
+                maxLength = inputValue.startsWith("0") ? 10 : 9;
+            }
+            $(this).prop('maxlength', maxLength).attr('maxlength', maxLength);
+            if (zeroAfterNineDigits) $this.val("0" + inputValue);
+        });
+
+        $form.validate({
+            ignore: '.not-active',
+            errorElement: 'span',
+            errorClass: 'sr-error',
+            focusCleanup: true,
+            rules: {
+                firstName: {
+                    required: true,
+                    lettersOnly: true,
+                    minlength: 2
+                },
+                lastName: {
+                    required: true,
+                    lettersOnly: true,
+                    minlength: 2
+                },
+                mobileNumber: {
+                    required: true,
+                    minlength: 9,
+                    maxlength: maxLength,
+                    number: true,
+                    numbersOnly: true
+                },
+                saIdNumber: {
+                    number: true,
+                    numbersOnly: true,
+                    minlength: 13,
+                    maxlength: 13,
+                    isValidSAId: true
+                },
+                birthDate: {
+                    required: true,
+                    minAge: true,
+                    validateDate: true
+                },
+                passport: {
+                    required: true,
+                    minlength: 6,
+                    maxlength: 20,
+                    alphanumericsOnly: true,
+                    isNotValidSAId: true
+                }
+            },
+            messages: {
+                pwd: {
+                    minlength: loc("form.pwd.minlength")
+                },
+                termsAndConditionsLink: {
+                    required: loc("form.termsAndConditionsLink.required")
+                },
+                saIdNumber: {
+                    isValidSAId: loc("form.saIdNumber.isValidSAId")
+                },
+                passport: {
+                    minlength: loc("form.passport.min.length"),
+                    isNotValidSAId: loc("form.passport.isNotValidSAId")
+                }
+            },
+            errorPlacement: function (error, element) {
+                const srSwitch = element.closest(".sr-switch");
+                if (srSwitch.length > 0) {
+                    srSwitch.append(error)
+                } else {
+                    element.parent().append(error);
+                }
+            },
+            onkeyup: function () {
+                if ($("#termsAndConditionsLink").length) {
+                    if (ACC.register.checkboxForm === true && ACC.register.checkASMForm) {
+                        ACC.validations.validateForm($form);
+                    }
+                } else if (ACC.register.checkASMForm) {
+                    ACC.validations.validateForm($form);
+                }
+            },
+            onfocusout: function (element) {
+                if ($(element).hasClass("js-validate-focus")) {
+                    this.element(element);
+                }
+            }
+        });
+    },
+
+    validateStopCardPasswordLength: function () {
+        $(".js-password-validation").on("input", function (event) {
+            const pwd = event.currentTarget.value;
+
+            if (pwd.length >= 8) {
+                $(".js-enable-button").prop("disabled", false);
+            } else {
+                $(".js-enable-button").prop("disabled", true);
+            }
+        });
+    },
+
+    airtimeModals: function (type) {
+        if (type === "active") {
+            $("#AirtimeModalActive").addClass("is-show");
+        } else if (type === "switch") {
+            $("#AirtimeModalSwitch").addClass("is-show");
+        }
+    },
+
+    bindSwipeForCoverBeneficiariesAction: function () {
+        $(document).on("change", ".js-item-swipe-for-cover", function () {
+            const $this = $(this);
+            if ($this.is(":checked")) {
+                const $beneficiariesForm = $(".js-swipe-for-cover-beneficiaries");
+                if ($beneficiariesForm.hasClass("hidden")) {
+                    $beneficiariesForm.removeClass("hidden");
+                }
+
+                const $beneficiariesButton = $(".js-swipe-for-cover-beneficiaries-button");
+                if ($beneficiariesButton.hasClass("hidden")) {
+                    $beneficiariesButton.removeClass("hidden");
+                }
+            } else {
+                $("#swipeForCoverModal").addClass("is-show");
+            }
+        });
+    },
+
+    bindBeneficiaryOptionsAction: function () {
+        const $form = $("#shrSwipeForCoverForm");
+        const $firstNameInput = $form.find("input[id='firstName']");
+        const $lastNameInput = $form.find("input[id='lastName']");
+        const $phoneNumberInput = $form.find("input[id='phoneNumber']");
+        const $button = $(".js-swipe-for-cover-beneficiaries-button");
+
+        if ($("input[name='useBeneficiariesData']").is(":checked")) {
+            $firstNameInput.prop("disabled", false);
+            $lastNameInput.prop("disabled", false);
+            $phoneNumberInput.prop("disabled", false);
+        }
+
+        $(document).on("click", "input[name='useBeneficiariesData']", function () {
+            const $input = $(this);
+            const $customerDataInput = $("input[name='useCustomerData']");
+            if ($input.is(":checked") && !$input.hasClass("was-selected")) {
+                if ($customerDataInput.is(":checked")) {
+                    $customerDataInput.prop("checked", false);
+                    $customerDataInput.removeClass("was-selected");
+                }
+                $input.val("true");
+                $input.addClass("was-selected");
+                $firstNameInput.prop("disabled", false);
+                $lastNameInput.prop("disabled", false);
+                $phoneNumberInput.prop("disabled", false);
+                $button.prop("disabled", true);
+            } else {
+                $input.prop("checked", false);
+                $input.removeClass("was-selected");
+
+                $firstNameInput.val("");
+                $lastNameInput.val("");
+                $phoneNumberInput.val("");
+                $firstNameInput.prop("disabled", true);
+                $lastNameInput.prop("disabled", true);
+                $phoneNumberInput.prop("disabled", true);
+
+                if (!$customerDataInput.is(":checked")) {
+                    $button.prop("disabled", true);
+                }
+            }
+
+            const $errorLabel = $("span[id='useBeneficiariesData.errors']");
+            if ($errorLabel.length) {
+                $errorLabel.hide();
+            }
+        });
+
+        $(document).on("click", "input[name='useCustomerData']", function () {
+            const $input = $(this);
+            const $beneficiariesData = $("input[name='useBeneficiariesData']");
+
+            if ($input.is(":checked") && !$input.hasClass("was-selected")) {
+                if ($beneficiariesData.is(":checked")) {
+                    $beneficiariesData.prop("checked", false);
+                    $beneficiariesData.removeClass("was-selected");
+
+                    $firstNameInput.val("");
+                    $lastNameInput.val("");
+                    $phoneNumberInput.val("");
+                    $firstNameInput.prop("disabled", true);
+                    $lastNameInput.prop("disabled", true);
+                    $phoneNumberInput.prop("disabled", true);
+
+                    $form.find("span[id='firstName-error']").hide();
+                    $form.find("span[id='lastName-error']").hide();
+                    $form.find("span[id='phoneNumber-error']").hide();
+                }
+
+                $input.addClass("was-selected");
+                $input.val("true");
+                $button.prop("disabled", false);
+            } else {
+                $input.prop("checked", false);
+                $input.removeClass("was-selected");
+
+                if (!$beneficiariesData.is(":checked")) {
+                    $button.prop("disabled", true);
+                }
+            }
+
+            const $errorLabel = $("span[id='useBeneficiariesData.errors']");
+            if ($errorLabel.length) {
+                $errorLabel.hide();
+            }
+        });
+    },
+
+    validateBeneficiaryForm: function () {
+        const $form = $("#shrSwipeForCoverForm");
+
+        $.validator.addMethod("numbersOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.numbersOnly(value);
+        }, loc("form.validator.numbersOnly"));
+
+        $.validator.addMethod("lettersOnly", function (value, element) {
+            return this.optional(element) || ACC.validations.lettersOnly(value);
+        }, loc("form.validator.lettersOnly"));
+
+        $form.validate({
+            ignore: '.not-active',
+            errorElement: 'span',
+            errorClass: 'sr-error',
+            focusCleanup: true,
+            rules: {
+                firstName: {
+                    required: true,
+                    lettersOnly: true,
+                    minlength: 2
+                },
+                lastName: {
+                    required: true,
+                    lettersOnly: true,
+                    minlength: 2
+                },
+                phoneNumber: {
+                    required: true,
+                    minlength: 9,
+                    maxlength: 10,
+                    number: true,
+                    numbersOnly: true
+                }
+            },
+            messages: {
+                phoneNumber: {
+                    minlength: loc("form.mobileNumber.minlength")
+                }
+            },
+            errorPlacement: function (error, element) {
+                element.parent().append(error);
+            },
+            onkeyup: function () {
+                const $button = $(".js-swipe-for-cover-beneficiaries-button");
+                $form.valid() ? $button.attr('disabled', false) : $button.attr('disabled', true);
+            },
+            onfocusout: function (element) {
+                if ($(element).hasClass("js-validate-focus")) {
+                    this.element(element);
+                }
+            }
+        });
+    },
+
+    bindSubmitSwipeForCover: function () {
+        $(document).on("click", ".js-swipe-for-cover-beneficiaries-button", function (e) {
+            e.preventDefault();
+
+            const $form = $("#shrSwipeForCoverForm");
+            if ($form.valid()) {
+                $form.submit();
+            }
+        });
+    },
+
+    bindDeactivateSwipeForCover: function () {
+        $(document).on("click", ".js-deactivate-swipe-for-cover-btn", function (e) {
+            e.preventDefault();
+
+            const $optOutForm = $("#swipeForCoverOptOutForm");
+            $optOutForm.submit();
+        });
+    },
+
+    bindCancelMembershipReasonsAction: function () {
+        $(document).on("change", "select[id='reason']", function () {
+            const $select = $(this);
+            const $selectedOption = $select.find(":selected");
+            const $form = $("#cancelMembershipForm");
+            const $textArea = $form.find("#freeTextReason");
+
+            const triggerFreeText = $selectedOption.data("freeText");
+            if (triggerFreeText) {
+                $textArea.removeClass("hidden");
+                $("#usingFreeText").val(true);
+            } else {
+                if ($textArea.is(":visible")) {
+                    $textArea.val("");
+                    $textArea.addClass("hidden");
+                }
+
+                $("#usingFreeText").val(false);
+            }
+
+            const validOption = $selectedOption.data("validOption");
+            const $submitButton = $form.find("#cancelMyMembershipButton");
+            const textAreaVal = $.trim($textArea.val());
+            if (validOption && (!triggerFreeText || (triggerFreeText && textAreaVal !== ''
+                && textAreaVal.length > 0))) {
+                $submitButton.prop("disabled", false);
+            } else {
+                $submitButton.prop("disabled", true);
+            }
+
+            const $errorLabel = $("span[id='reason.errors']");
+            $errorLabel.hide();
+        });
+    },
+
+    bindCancelMembershipFreeTextAction: function () {
+        $(document).on("change keyup paste", "#freeTextReason", function () {
+            const $textArea = $(this);
+            const textAreaVal = $.trim($textArea.val());
+            const $form = $("#cancelMembershipForm");
+            const $submitButton = $form.find("#cancelMyMembershipButton");
+
+            if (textAreaVal !== '' && textAreaVal.length > 0) {
+                $submitButton.prop("disabled", false);
+            } else {
+                $submitButton.prop("disabled", true);
+            }
+
+            const $errorLabel = $("span[id='freeTextReason.errors']");
+            $errorLabel.hide();
+        });
+    },
+
+    bindSideNavVisibilityAction: function () {
+        const $componentWrappers = $(".js-sidenav-children");
+        if ($componentWrappers.length > 0) {
+            $componentWrappers.each(function () {
+                const $component = $(this);
+                const $componentChildren = $component.find("li");
+                if ($componentChildren.length > 0 && $component.hasClass("hidden")) {
+                    $component.removeClass("hidden");
+                }
+            });
+        }
+    },
+
+    enabledUpdateDetailsButton: function () {
+        const $accountDetails = $("#AccountDetails");
+        const $accountDetailsButton = $accountDetails.find("#AccountDetailsButton");
+        const $accountDetailsInputs = $accountDetails.find(".form-section__input");
+
+        const dataUser = {};
+        $.each($accountDetailsInputs, function (index, element) {
+            const $element = $(element);
+            dataUser[$element.attr("id")] = $element.val();
+        });
+
+        $accountDetailsInputs.on("keyup", function () {
+            const $this = $(this);
+            if ($this.val() !== dataUser[$this.attr("id")]) {
+                $this.addClass("updated");
+            } else {
+                $this.removeClass("updated");
+            }
+
+            setTimeout(function () {
+                const updates = $accountDetails.find(".form-section__input.updated").length;
+                const errors = $accountDetails.find(".form-section__input.sr-error").length;
+                const disabled = !(updates > 0 && errors === 0);
+                $accountDetailsButton.attr("disabled", disabled);
+            }, 0);
+        });
+    },
+
+    validateStopCardVerificationPassword: function () {
+        const $password = $("#password");
+        $(".js-password-validation").on("keyup", function () {
+            if ($password.val().length >= 8) {
+                $(".js-register-validate").prop("disabled", false);
+            } else {
+                $(".js-register-validate").prop("disabled", true);
+            }
+        });
+
+        const $passwordVerificationForm = $("#passwordVerificationForm");
+        if (!$passwordVerificationForm.hasClass("js-asm-stop-card")) {
+            $passwordVerificationForm.validate({
+                ignore: '.not-active',
+                errorElement: 'span',
+                errorClass: 'sr-error',
+                rules: {
+                    password: {
+                        required: true,
+                        minlength: 8,
+                        maxlength: 128
+                    },
+                },
+                messages: {
+                    password: {
+                        minlength: loc("login.password.min.length")
+                    }
+                },
+                onkeyup: function () {
+                    ACC.validations.validateForm($passwordVerificationForm);
+                }
+            });
+        }
+    },
+
+};

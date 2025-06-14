@@ -1,0 +1,22 @@
+ACC.futurelink = {
+
+    _autoload: [
+        "bindFutureStockLink"
+    ],
+
+    bindFutureStockLink: function () {
+        $(document).on("click", ".futureStockLink", function (e) {
+            e.preventDefault();
+            const url = $(this).attr("href");
+            const title = $(this).attr("title");
+
+            ACC.colorbox.open(ACC.common.encodeHtml(title), {
+                href: url,
+                maxWidth: "100%",
+                width: "320px",
+                height: "320px",
+                initialWidth: "320px"
+            });
+        })
+    }
+};

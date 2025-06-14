@@ -1,0 +1,132 @@
+ACC.subscriptions = {
+
+    _autoload: [
+        ["bindSubscriptionAddToCart", $(".js-add-subscription").length > 0],
+        ["bindSubscriptionSelectPlan", $(".js-select-plan").length > 0],
+        ["loadCardsPlans", $(".plans-table__plans").length > 0],
+        ["bindSubscriptionPayment", $(".js-start-subscription").length > 0],
+        ["bindFaq", $(".js-xsp-faq").length > 0],
+        ["bindQuestionFreeTrial", $(".js-question-free-trial").length > 0],
+        ["bindManageMyPlan", $(".js-manage-my-plan").length > 0],
+        ["bindCancelPlan", $(".my-plan__cancel-plan").length > 0],
+        ["bindCancelPlanAsm", $(".cancel-card__button-stop").length > 0],
+    ],
+
+    bindSubscriptionAddToCart: function () {
+        $(document).on("click", ".js-add-subscription", function (e) {
+            e.preventDefault();
+            const $form = $("#addSubscriptionToCartForm");
+            $form.append('<input type="hidden" name="CSRFToken" value="' + ACC.config.CSRFToken + '" />');
+            $form.append('<input type="hidden" name="code" value="' + $(this).data("subscription-code") + '" />');
+            $form.submit();
+        });
+    },
+
+    bindSubscriptionPayment: function () {
+        $(document).on("click", ".js-start-subscription", function (e) {
+            e.preventDefault();
+            const checkedCard = $(".js-subscription-payment-id:checked");
+            if (checkedCard.length > 0) {
+                const cvvInput = checkedCard.closest(".js-subscription-payment-info").find(".js-subscription-payment-cvv");
+                $(".js-subscription-selected-card-cvv").val(cvvInput.val());
+            }
+            $(this).closest("form").submit();
+        });
+    },
+
+    bindSubscriptionSelectPlan: function () {
+        $(document).on("click", ".js-select-plan", function () {
+            const $plansTable = $(this).closest(".plans-table");
+            const planSelected = $(this).data("plan");
+            $plansTable.find("td.is-selected").removeClass("is-selected");
+            $plansTable.find("tr td:nth-child(" + (planSelected + 1) + ")").addClass("is-selected");
+        });
+    },
+
+    loadCardsPlans: function () {
+        const $plansTableDesktop = $(".plans-table-desktop");
+        const $plansTableMobile = $(".plans-table-mobile");
+        const $plansMobile = $plansTableMobile.find(".plans-table__plan");
+        const planSelected = $plansTableDesktop.find(".js-select-plan[checked]").data("plan");
+
+        const swiper = new Swiper('.swiper', {
+            effect: "cards",
+            grabCursor: true,
+            cardsEffect: {
+                slideShadows: false
+            }
+        });
+
+        swiper.on('sliderFirstMove', function () {
+            const $plansMobile = $plansTableMobile.find(".plans-table__plan");
+            $plansMobile.removeClass("show-benefits");
+        });
+
+        swiper.on('slideChange', function (swiper) {
+            $plansMobile.eq(swiper.activeIndex).find("input[type='radio']").prop("checked", true);
+        });
+
+        swiper.slideTo(planSelected - 1);
+
+        const $jsTellMeMore = $(".js-tell-me-more");
+        $jsTellMeMore.on("click", function () {
+            $(this).closest(".plans-table__plan").toggleClass("show-benefits");
+        });
+    },
+
+    bindFaq: function () {
+        const $xspFaq = $(".xsp-faq");
+        const $xspFaqItems = $xspFaq.find(".xsp-faq__item");
+        const $questions = $xspFaqItems.find(".question");
+
+        $questions.on("click", function () {
+            if (!$(this).parent().hasClass("show-answer")) $xspFaqItems.removeClass("show-answer");
+            $(this).parent().toggleClass("show-answer");
+        });
+    },
+
+    bindQuestionFreeTrial: function () {
+        const $questionFreeTrial = $(".js-question-free-trial");
+        $questionFreeTrial.on("click", function () {
+            const $parent = $(this).parent();
+            $parent.toggleClass("show-message");
+        });
+    },
+
+    bindManageMyPlan: function () {
+        const $manageMyPlanButton = $(".js-manage-my-plan");
+        $manageMyPlanButton.on("click", function () {
+            $(this).parent().toggleClass("show-options");
+        });
+    },
+
+    bindCancelPlan: function () {
+        const $cancelPlanOpenModal = $(".js-cancel-plan-open-modal");
+        const $cancelPlanCloseModal = $(".js-cancel-plan-close-modal");
+
+        $cancelPlanOpenModal.on("click", function () {
+            $(".cancel-plan-modal").appendTo("body");
+            $(".cancel-plan-modal").addClass("show-modal");
+        });
+
+        $cancelPlanCloseModal.on("click", function () {
+            $(".cancel-plan-modal").appendTo(".my-plan__cancel-plan");
+            $(".cancel-plan-modal").removeClass("show-modal");
+        });
+    },
+
+      bindCancelPlanAsm: function () {
+            const $cancelPlanOpenModal = $(".js-cancel-plan-open-modal");
+            const $cancelPlanCloseModal = $(".js-cancel-plan-close-modal");
+
+            $cancelPlanOpenModal.on("click", function () {
+                $(".cancel-plan-asm-modal").appendTo("body");
+                $(".cancel-plan-asm-modal").addClass("show-modal");
+            });
+
+            $cancelPlanCloseModal.on("click", function () {
+                $(".cancel-plan-asm-modal").appendTo(".my-plan__cancel-plan");
+                $(".cancel-plan-asm-modal").removeClass("show-modal");
+            });
+        }
+}

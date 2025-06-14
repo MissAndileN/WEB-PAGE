@@ -1,0 +1,276 @@
+ACC.autocomplete = {
+
+    _autoload: [
+        "bindSearchAutocomplete",
+        "bindDisableSearch",
+        ["clearSearchInputByClickingOnViewAll", $(".js-site-search-input").length],
+        ["closeSearchMobile", $(".js_search_close-button").length],
+        ["submitSearchBox", $(".search-component__form").length]
+    ],
+
+    bindSearchAutocomplete: function () {
+        // extend the default autocomplete widget, to solve issue on multiple instances of the searchbox component
+        $.widget("custom.yautocomplete", $.ui.autocomplete, {
+            _create: function () {
+
+                // get instance specific options form the html data attr
+                const option = this.element.data("options");
+                // set the options to the widget
+                this._setOptions({
+                    minLength: option.minCharactersBeforeRequest,
+                    displayProductImages: option.displayProductImages,
+                    delay: option.waitTimeBeforeRequest,
+                    autocompleteUrl: option.autocompleteUrl,
+                    source: this.source,
+                    classes: {
+                        "ui-autocomplete": "search-site-autocomplete"
+                    },
+                    select: function (event, ui) {
+                        if (!ui.item.title || ui.item.viewAll) {
+                            $("#js-site-search-input").val(ACC.sanitizer.sanitize(ui.item.label));
+                            $(event.currentTarget).hide();
+                        }
+                        return false;
+                    },
+                    search: function (event) {
+                        $(event.target).closest(".search-component").removeClass("show-departments");
+                    },
+                    close: function (event) {
+                        $(event.target).closest(".search-component").removeClass("is-open");
+                        $(event.currentTarget).show();
+                        $("html").removeClass("is-block");
+                    },
+                    open: function (event) {
+                        $(event.target).closest(".search-component").addClass("is-open");
+                        $("html").addClass("is-block");
+                    }
+                });
+
+                // call the _super()
+                $.ui.autocomplete.prototype._create.call(this);
+                $(".search-site-autocomplete").appendTo(".search-component__results");
+
+            },
+            options: {
+                cache: {}, // init cache per instance
+                focus: function () {
+                    return false;
+                }, // prevent textfield value replacement on item focus
+                select: function (event, ui) {
+                    ui.item.value = ACC.sanitizer.sanitize(ui.item.value);
+                    window.location.href = ui.item.url;
+                }
+            },
+            _renderItem: function (ul, item) {
+                const searchTerm = $("#js-site-search-input").val().toLowerCase();
+                const departmentSelectionVal = $("#department-selection").val();
+                const searchCategory = departmentSelectionVal !== "" ? "%3A%3AallCategories%3A" + departmentSelectionVal : "";
+                let oldItemValue;
+                if (item.value.toLowerCase().indexOf(searchTerm) >= 0) {
+                    oldItemValue = item.value;
+                    const searchTermIdx = item.value.toLowerCase().indexOf(searchTerm);
+                    const endIdx = searchTermIdx + searchTerm.length;
+                    const wordToReplace = item.value.substring(searchTermIdx, endIdx);
+                    item.value = item.value.replace(wordToReplace, "<span class='fw-normal'>" + wordToReplace + "</span>");
+                }
+
+                if (item.type === "autoSuggestion") {
+                    const classLink = item.title ? "title" : "result";
+                    let renderHtml;
+                    if (item.title) {
+                        if (item.viewAll) {
+                            renderHtml = "<div><a href='/search/all?q=" + searchTerm + searchCategory + "'><div class='view-all-results'>" + item.value + "</div></a></div>";
+                        } else {
+                            renderHtml = "<div><span class='title'>" + item.value + "</span></div>";
+                        }
+                    } else {
+                        renderHtml = "<a href='" + item.url + "' title='" + ACC.sanitizer.sanitize(oldItemValue) + "'><span class='" + classLink + "'><span class='searchIcon'><i class=\"fa-fw shoprite-icon-search\"></i></span><span class=\"ml-1\"></span> " + ACC.sanitizer.sanitize(item.value) + "</span></a>";
+                    }
+                    return $("<li>")
+                        .data("item.autocomplete", item)
+                        .append(renderHtml)
+                        .appendTo(ul);
+                } else if (item.type === "productResult") {
+                    const classLink = item.title ? "title" : "result";
+                    let renderHtml;
+                    let renderFoxPromotionPrice;
+                    let renderPromotionalPrice = item.promotionalPrice;
+                    let xtraSavingsActive = true;
+                    let currency = item.price;
+                    let renderDiscountTypePerc = "<span> </span>";
+                    let renderDiscountTypeAmount = "<span></span>";
+
+                    if (item.title) {
+                        if (item.viewAll) {
+                            renderHtml = "<span class='title'><li></span><div><a href='/search/all?q=" + searchTerm + searchCategory + "'><div class='view-all-results'>" + ACC.sanitizer.sanitize(item.value) + "</div></a></div>";
+                        } else {
+                            renderHtml = "<span class='title'><li><div><span class='title'></span> + ACC.sanitizer.sanitize(item.value) + </span></div>";
+                        }
+                    } else {
+                        if (item.includedInBonusBuys.length > 0) {
+                            const firstBonusBuy = item.includedInBonusBuys[0];
+                            if (firstBonusBuy.name !== "") renderFoxPromotionPrice = "<span class='bb-promo-name'>" + ACC.sanitizer.sanitize(firstBonusBuy.name) + "</span>";
+
+                            if (firstBonusBuy.discountType === "PERCENTAGE") renderDiscountTypePerc = "<span>%</span>";
+                            else if (firstBonusBuy.discountType === "AMOUNT" || firstBonusBuy.discountType === "FIX_DISCOUNT") renderDiscountTypeAmount = "<span>" + currency.charAt(0) + "</span>";
+
+                            if (firstBonusBuy.allowedMembers === "FOX_MEMBERS" && firstBonusBuy.effectivePrice !== "" && xtraSavingsActive) {
+                                if (firstBonusBuy.discountType === "FIX_DISCOUNT") renderFoxPromotionPrice = "<div class='special-price special-price--promotion'><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__price'>" + ACC.sanitizer.sanitize(firstBonusBuy.effectivePrice.formattedValue) + "</span><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__special-price'>" + ACC.sanitizer.sanitize(item.price) + "</span></div>";
+                                else if (firstBonusBuy.discountType === "PERCENTAGE" || firstBonusBuy.discountType === "AMOUNT") renderFoxPromotionPrice = "<div class='special-price special-price--promotion'><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__price'>" + ACC.sanitizer.sanitize(firstBonusBuy.effectivePrice.formattedValue) + "</span><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + " special-price-icon__extra__title'><span class='description'>SAVE </span><span class='discount'>" + renderDiscountTypeAmount + "</span><span class='discountValue'>" + ACC.sanitizer.sanitize(parseInt(firstBonusBuy.discountValue)) + "</span><span class='discountPerc'>" + renderDiscountTypePerc + "</span></span><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__special-price'>" + ACC.sanitizer.sanitize(item.price) + "</span></div>";
+                            } else if (firstBonusBuy.allowedMembers === "PARTICULAR_MEMBERS" && firstBonusBuy.effectivePrice !== "") {
+                                if (firstBonusBuy.discountType === "FIX_DISCOUNT") renderFoxPromotionPrice = "<div class='special-price special-price--xs-non-member'><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__price'>" + ACC.sanitizer.sanitize(firstBonusBuy.effectivePrice.formattedValue) + "</span><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__special-price'>" + ACC.sanitizer.sanitize(item.price) + "</span></div>";
+                                else if (firstBonusBuy.discountType === "PERCENTAGE" || firstBonusBuy.discountType === "AMOUNT") renderFoxPromotionPrice = "<div class='special-price special-price--xs-non-member'><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__price'>" + ACC.sanitizer.sanitize(firstBonusBuy.effectivePrice.formattedValue) + "</span><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + " special-price-icon__extra__title'><span class='description'>SAVE </span><span  class='discount'>" + renderDiscountTypeAmount + "</span><span  class='discountValue'>" + ACC.sanitizer.sanitize(parseInt(firstBonusBuy.discountValue)) + "</span><span class='discountPerc'>" + renderDiscountTypePerc + "</span></span><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__special-price'>" + ACC.sanitizer.sanitize(item.price) + "</span></div>";
+                            } else if (firstBonusBuy.allowedMembers === "ALL") renderFoxPromotionPrice = "<span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__bb-name'>" + ACC.sanitizer.sanitize((item.includedInBonusBuys) ? firstBonusBuy.name : "") + "</span>";
+
+                        } else renderFoxPromotionPrice = renderPromotionalPrice == null || renderPromotionalPrice === false ? "<span class='no-bb-name'>" + ACC.sanitizer.sanitize(item.price) + "</span>" : "<span class='promo-special-price'>" + ACC.sanitizer.sanitize(item.price) + "</span>";
+                        renderHtml =
+                            "<a href='" + item.url + "' title='" + ACC.sanitizer.sanitize(oldItemValue) + "'><div class='.search-component__results primary " + ACC.sanitizer.sanitize(item.featuredTag.type) + "' ;'>" +
+                            "<img src='" + ACC.sanitizer.sanitize(item.image) + "'  class='.search-component__results primary__search-product-img'/><div class='.search-component__results primary__product-price-on-search'>" +
+                            "<span class=\"ml-1\"></span><span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-name-on-search__price'>" + renderFoxPromotionPrice + "</span>" +
+                            "<span class='primary__product-name-on-search__value'>" + ACC.sanitizer.sanitize(item.description) + "</span></div><div class='.search-component__results primary__product-name-on-search'>" +
+                            "<span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-price-on-search__feature'><span class='feature-desc' style='color: #ffffff;'>" + ACC.sanitizer.sanitize(item.featuredTag.type).split("_").join(" ") + "</span></span><span class=\"ml-1\"></span>" +
+                            "<span class='" + ACC.sanitizer.sanitize(item.featuredTag.type) + "__product-price-on-search__code'>" + ACC.sanitizer.sanitize(item.brand) + "</span></div></div></a>";
+                    }
+                    return $("<li>")
+                        .data("item.autocomplete", item)
+                        .append(renderHtml)
+                        .appendTo(ul);
+                }
+            },
+            source: function (request, response) {
+                const self = this;
+                const term = request.term.toLowerCase();
+                const categoryCode = $("#js-site-search-input").attr("data-category-selected");
+                if (term in self.options.cache && categoryCode in self.options.cache[term]) {
+                    return response(self.options.cache[term][categoryCode]);
+                }
+
+                $.ajax({
+                    url: self.options.autocompleteUrl,
+                    dataType: "json",
+                    data: {
+                        term: request.term,
+                        categoryCode: categoryCode
+                    },
+                    success: function (data) {
+                        const autoSearchData = [];
+                        if (data.suggestions != null && data.suggestions.length) {
+                            autoSearchData.push({
+                                value: loc("searchbox.suggested.keywords.title.text"),
+                                url: ACC.config.encodedContextPath + "/search?q=" + encodeURIComponent(request.term),
+                                type: "autoSuggestion",
+                                title: true
+                            });
+                            $.each(data.suggestions, function (i, obj) {
+                                autoSearchData.push({
+                                    value: obj.term,
+                                    url: ACC.config.encodedContextPath + "/search?q=" + encodeURIComponent(obj.term),
+                                    type: "autoSuggestion"
+                                });
+                            });
+                        }
+                        if (data.products != null && data.products.length) {
+                            autoSearchData.push({
+                                value: loc("searchbox.products.title.text"),
+                                url: ACC.config.encodedContextPath + "/search?q=" + encodeURIComponent(request.term),
+                                type: "autoSuggestion",
+                                title: true
+                            });
+                            $.each(data.products, function (i, obj) {
+                                autoSearchData.push({
+                                    value: ACC.sanitizer.sanitize(obj.name),
+                                    description: (obj.description),
+                                    brand: obj.productBrand,
+                                    url: ACC.config.encodedContextPath + obj.url,
+                                    price: obj.price.formattedValue,
+                                    type: "productResult",
+                                    featuredTag: (obj.featuredTag != null) ? obj.featuredTag : "",
+                                    includedInBonusBuys: obj.includedInBonusBuys,
+                                    promotionalPrice: obj.price.promotionalPrice,
+                                    image: (obj.images != null && self.options.displayProductImages) ? obj.images[0].url : null // prevent errors if obj.images = null
+                                });
+                            });
+                        }
+                        if (data.categories != null && data.categories.length) {
+
+                            autoSearchData.push({
+                                value: loc("searchbox.categories.title.text"),
+                                url: ACC.config.encodedContextPath + "/search?q=" + encodeURIComponent(request.term),
+                                type: "autoSuggestion",
+                                title: true
+                            });
+                            $.each(data.categories, function (i, obj) {
+                                if (obj.hasOwnProperty('name') && obj.hasOwnProperty('url')) {
+                                    autoSearchData.push({
+                                        value: request.term + " " + loc("searchbox.categories.in.text") + " " + obj.name,
+                                        url: ACC.config.encodedContextPath + obj.url,
+                                        type: "autoSuggestion"
+                                    });
+                                }
+                            });
+                        }
+
+                        if (data.categories.length > 0 || data.products.length > 0 || data.suggestions.length > 0) {
+                            autoSearchData.push({
+                                value: loc("searchbox.view.all.text"),
+                                url: ACC.config.encodedContextPath + "/search?q=" + encodeURIComponent(request.term),
+                                type: "autoSuggestion",
+                                viewAll: true,
+                                title: true
+                            });
+                        }
+
+                        if (typeof self.options.cache[term] === "undefined") {
+                            self.options.cache[term] = {};
+                        }
+                        self.options.cache[term][categoryCode] = autoSearchData;
+                        return response(autoSearchData);
+                    }
+                });
+            }
+        });
+
+
+        const $search = $(".js-site-search-input");
+        if ($search.length > 0) {
+            $search.yautocomplete()
+        }
+
+    },
+
+    bindDisableSearch: function () {
+        $('.js-site-search-input').keyup(function (event) {
+            const $searchInput = $(event.target);
+            $searchInput.val($searchInput.val().replace(/^\s+/gm, ''));
+            $('.js_search_button').prop('disabled', this.value === "");
+        })
+    },
+
+    closeSearchMobile: function () {
+        const $jsSearchCloseButton = $(".js_search_close-button");
+        const $searchComponent = $jsSearchCloseButton.closest(".search-component");
+        const $searchInput = $searchComponent.find(".js-site-search-input");
+
+        $jsSearchCloseButton.on("click", function () {
+            $(".header").removeClass("is-searching");
+            $searchComponent.removeClass("show-departments is-writing");
+            $searchInput.val("");
+        });
+    },
+
+    clearSearchInputByClickingOnViewAll: function () {
+        $(document).on("click", ".view-all-results", function () {
+            $('.js-site-search-input').val('');
+        });
+    },
+
+    submitSearchBox: function () {
+        const $searchComponentForm = $(".search-component__form");
+        $searchComponentForm.on("submit", function (e) {
+            e.preventDefault();
+            const textValue = this.querySelector("[name=text]").value;
+            const departmentValue = this.querySelector("[name=department]").value !== "" ? "%3A%3AallCategories%3A" + this.querySelector("[name=department]").value : "";
+            window.location.href = this.action + "?q=" + encodeURIComponent(textValue) + departmentValue;
+        });
+    }
+};

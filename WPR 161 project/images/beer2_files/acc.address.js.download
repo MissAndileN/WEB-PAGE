@@ -1,0 +1,110 @@
+ACC.address = {
+
+    _autoload: [
+        "bindSuggestedDeliveryAddresses",
+        "bindCountrySpecificAddressForms",
+        "showAddressFormButtonPanel",
+        "bindViewAddressBook",
+        "bindToColorboxClose",
+        "showRemoveAddressFromBookConfirmation",
+        "backToListAddresses"
+    ],
+
+    spinner: $("<img src='" + ACC.config.commonResourcePath + "/images/spinner.gif' alt='' />"),
+    addressID: '',
+
+    bindSuggestedDeliveryAddresses: function () {
+        const status = $('.add_edit_delivery_address_id').attr('status');
+        if (status != null && "hasSuggestedAddresses" === status) {
+            ACC.address.showSuggestedAddressesPopup();
+        }
+    },
+
+    showSuggestedAddressesPopup: function () {
+        $(document).ready(function () {
+            ACC.colorbox.open("Suggested Addresses", {
+                href: "#popup_suggested_delivery_addresses",
+                inline: true,
+                width: "525px",
+                onComplete: function () {
+                    $(this).colorbox.resize();
+                }
+            });
+        })
+    },
+
+    bindCountrySpecificAddressForms: function () {
+        $(document).on("change", '#countrySelector select', function () {
+            const options = {
+                'addressCode': '',
+                'countryIsoCode': $(this).val()
+            };
+            ACC.address.displayCountrySpecificAddressForm(options, ACC.address.showAddressFormButtonPanel);
+        })
+    },
+
+    showAddressFormButtonPanel: function () {
+        if ($('#countrySelector :input').val() !== '') {
+            $('#addressform_button_panel').show();
+        }
+    },
+
+    bindToColorboxClose: function () {
+        $(document).on("click", ".closeColorBox", function () {
+            ACC.colorbox.close();
+        })
+    },
+
+
+    displayCountrySpecificAddressForm: function (options, callback) {
+        $.ajax({
+            url: ACC.config.encodedContextPath + '/my-account/addressform',
+            async: true,
+            data: options,
+            dataType: "html",
+            beforeSend: function () {
+                $("#i18nAddressForm").html(ACC.address.spinner);
+            }
+        }).done(function (data) {
+            $("#i18nAddressForm").html($(data).html());
+            if (typeof callback == 'function') {
+                callback.call();
+            }
+        });
+    },
+
+    bindViewAddressBook: function () {
+        $(document).on("click", ".js-address-book", function (e) {
+            e.preventDefault();
+
+            ACC.colorbox.open("Saved Addresses", {
+                href: "#addressbook",
+                inline: true,
+                width: "380px"
+            });
+        });
+    },
+
+    showRemoveAddressFromBookConfirmation: function () {
+        $(document).on("click", ".removeAddressFromBookButton", function () {
+            const addressId = $(this).data("addressId");
+            const popupTitle = $(this).data("popupTitle");
+
+            ACC.colorbox.open(popupTitle, {
+                inline: true,
+                height: false,
+                href: "#popup_confirm_address_removal_" + addressId,
+                onComplete: function () {
+                    $(this).colorbox.resize();
+                }
+            });
+        })
+    },
+
+    backToListAddresses: function () {
+        $(".addressBackBtn").on("click", function () {
+            window.location = $(this).data("backToAddresses");
+        });
+    }
+
+};

@@ -1,0 +1,394 @@
+ACC.dataPicker = {
+
+    _autoload: [
+        ["datePicker", $(".js-sr-date-picker").length > 0],
+        ["datePickerMyAccount", $(".account-details").length > 0]
+
+    ],
+
+    datePicker: function () {
+        const jsSrDatePickers = $(".js-sr-date-picker");
+
+        if (jsSrDatePickers.length > 0) {
+            const formatNumber = function (number) {
+                return number > 9 ? number : "0" + number;
+            };
+
+            const disabledButton = function (button, state) {
+                button.attr("disabled", state);
+            };
+
+            const disabledButtonPart = function (srDatePicker, buttonDirection, part, state) {
+                const buttonRow = srDatePicker.find('[data-date-part="' + part + '"]');
+                const button = buttonRow.find('.' + buttonDirection + '-button');
+                disabledButton(button, state);
+            };
+
+            const addValueSpanPart = function (srDatePicker, part, value) {
+                srDatePicker.find('[data-date-part="' + part + '"] .value').text(value);
+            };
+
+            const activeValue = function (element) {
+                element.parent().find(".sr-date-picker__row").removeClass("is-active");
+                element.addClass("is-active");
+            };
+
+            const drawDatePicker = function (srDatePicker, day, month, year) {
+                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                addValueSpanPart(srDatePicker, "day", formatNumber(day));
+                addValueSpanPart(srDatePicker, "month", months[month]);
+                addValueSpanPart(srDatePicker, "year", year);
+
+                if (!jsSrDatePickers.hasClass('normal-date-picker')) {
+                    if (year < dataDefaultToday.year) {
+                        disabledButtonPart(srDatePicker, "next", "day", false);
+                        disabledButtonPart(srDatePicker, "next", "month", false);
+                        disabledButtonPart(srDatePicker, "next", "year", false);
+                    } else {
+                        disabledButtonPart(srDatePicker, "next", "year", true);
+
+                        if (month < dataDefaultToday.month) {
+                            disabledButtonPart(srDatePicker, "next", "month", false);
+                            disabledButtonPart(srDatePicker, "next", "day", false);
+                        } else {
+                            disabledButtonPart(srDatePicker, "next", "year", true);
+
+                            if (day < dataDefaultToday.day) {
+                                disabledButtonPart(srDatePicker, "next", "day", false);
+                            } else {
+                                disabledButtonPart(srDatePicker, "next", "day", true);
+                            }
+                        }
+                    }
+
+                    if (day === 1) disabledButtonPart(srDatePicker, "prev", "day", true);
+                    if (month === 1) disabledButtonPart(srDatePicker, "prev", "month", true);
+                } else {
+                    disabledButtonPart(srDatePicker, "next", "day", false);
+                    disabledButtonPart(srDatePicker, "next", "month", false);
+                    disabledButtonPart(srDatePicker, "next", "year", false);
+                }
+            };
+
+            const defaultToday = ACC.global.getCurrentDate();
+            const adultYears = (!jsSrDatePickers.hasClass('normal-date-picker')) ? 18 : 0;
+            const dataDefaultToday = {
+                day: defaultToday.getDate(),
+                month: defaultToday.getMonth(),
+                year: defaultToday.getFullYear() - adultYears
+            };
+
+            $.each(jsSrDatePickers, function (index, value) {
+                function openCalendar() {
+                    const rows = srDatePickerButton.parent().find(".sr-date-picker__row");
+                    rows.removeClass("is-active");
+
+                    if (!srDatePickerContainer.hasClass("is-show")) {
+                        srDatePickerContainer.addClass("is-show");
+                        const valueJsSrDatePicker = jsSrDatePicker.val();
+                        const splitValueJsSrDatePicker = valueJsSrDatePicker.split("/");
+                        const dataInput = {
+                            day: parseInt(splitValueJsSrDatePicker[0]),
+                            month: parseInt(splitValueJsSrDatePicker[1]),
+                            year: parseInt(splitValueJsSrDatePicker[2])
+                        };
+
+                        const reset = function () {
+                            todayDay = dataDefaultToday.day;
+                            todayMonth = dataDefaultToday.month;
+                            defaultYear = dataDefaultToday.year;
+
+                            if ($(value).attr("type") === 'date') jsSrDatePicker.val(defaultYear + "-" + formatNumber(todayMonth + 1) + "-" + formatNumber(todayDay));
+                            else jsSrDatePicker.val(formatNumber(todayDay) + "/" + formatNumber(todayMonth + 1) + "/" + defaultYear);
+                            drawDatePicker(srDatePicker, todayDay, todayMonth, defaultYear);
+                            jsSrDatePicker.valid();
+                            ACC.validations.validateForm(jsSrDatePicker.closest("form"));
+                        };
+
+                        const inputToDatePicker = function () {
+                            todayDay = dataInput.day;
+                            todayMonth = parseInt(dataInput.month) - 1;
+                            defaultYear = dataInput.year;
+
+                            drawDatePicker(srDatePicker, todayDay, todayMonth, defaultYear);
+                        };
+
+                        if (splitValueJsSrDatePicker.length === 3) {
+                            if (dataInput.year <= dataDefaultToday.year) {
+                                if (dataInput.year === dataDefaultToday.year && (dataInput.month - 1) <= dataDefaultToday.month) {
+                                    if ((dataInput.month - 1) === dataDefaultToday.month && dataInput.day <= dataDefaultToday.day) {
+                                        inputToDatePicker();
+                                    } else if ((dataInput.month - 1) < dataDefaultToday.month) {
+                                        inputToDatePicker();
+                                    } else {
+                                        reset();
+                                    }
+                                } else if (dataInput.year < dataDefaultToday.year) {
+                                    inputToDatePicker();
+                                } else {
+                                    reset();
+                                }
+                            } else {
+                                reset();
+                            }
+                        } else {
+                            reset();
+                        }
+                    } else {
+                        srDatePickerContainer.removeClass("is-show");
+                    }
+
+                    $(window).on("click", function (e) {
+                        if (srDatePickerContainer.length && !srDatePickerContainer.is(e.target) && srDatePickerContainer.has(e.target).length === 0) {
+                            srDatePickerContainer.removeClass("is-show");
+                        }
+                    });
+                }
+
+                const $el = $(value);
+                if ($el.attr("type") === "date") {
+                    $el.attr("type", "text");
+
+                    $el.on("focus", function () {
+                        $el.attr("type", "date");
+                        openCalendar();
+                    });
+
+                    $el.on("blur", function () {
+                        $el.attr("type", "text");
+                    });
+                }
+
+                const cleave = new Cleave(value, {
+                    date: true,
+                    delimiter: '/',
+                    datePattern: ['d', 'm', 'Y']
+                });
+
+                const today = ACC.global.getCurrentDate();
+                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                let todayDay = today.getDate();
+                let todayMonth = today.getMonth();
+                let todayYear = today.getFullYear();
+
+                const adultYears = (!$(value).hasClass('normal-date-picker')) ? 18 : 0;
+                let defaultYear = todayYear - adultYears;
+
+                const jsSrDatePicker = $(value);
+                jsSrDatePicker.wrap('<div class="sr-date-picker-container"></div>');
+                const srDatePickerContainer = jsSrDatePicker.parent();
+                srDatePickerContainer.prepend("<i class='icon shoprite-icon-calendar'>");
+                srDatePickerContainer.append('<button type="button" class="sr-date-picker__button"><i class="shoprite-icon-dropdown-expand"></i></button>' +
+                    '<div class="sr-date-picker">' +
+                    '   <div class="sr-date-picker__row" data-date-part="day">' +
+                    '       <button type="button" class="prev-button"><i class="shoprite-icon-chevron-left"></i></button>' +
+                    '       <span class="value">' + formatNumber(todayDay) + '</span>' +
+                    '       <button type="button" class="next-button" disabled><i class="shoprite-icon-chevron-right"></i></button>' +
+                    '   </div>' +
+                    '   <div class="sr-date-picker__row" data-date-part="month">' +
+                    '       <button type="button" class="prev-button"><i class="shoprite-icon-chevron-left"></i></button>' +
+                    '       <span class="value">' + months[todayMonth] + '</span>' +
+                    '       <button type="button" class="next-button" disabled><i class="shoprite-icon-chevron-right"></i></button>' +
+                    '   </div>' +
+                    '   <div class="sr-date-picker__row" data-date-part="year">' +
+                    '       <button type="button" class="prev-button"><i class="shoprite-icon-chevron-left"></i></button>' +
+                    '       <span class="value">' + defaultYear + '</span>' +
+                    '       <button type="button" class="next-button" disabled><i class="shoprite-icon-chevron-right"></i></button>' +
+                    '   </div>' +
+                    '</div>');
+
+                const srDatePicker = srDatePickerContainer.find(".sr-date-picker");
+                const srDatePickerButton = srDatePickerContainer.find(".sr-date-picker__button");
+                srDatePicker.css("top", jsSrDatePicker.outerHeight() - 1);
+
+                srDatePickerButton.on("click", function () {
+                    openCalendar();
+                });
+
+                /*Buttons*/
+                const prevButtonMain = srDatePickerContainer.find(".prev-button");
+                const nextButtonMain = srDatePickerContainer.find(".next-button");
+
+                prevButtonMain.on("click", function () {
+                    const button = $(this);
+                    const buttonParent = button.parent();
+                    activeValue(buttonParent);
+                    const nextButton = buttonParent.find(".next-button");
+                    const datePart = buttonParent.data("date-part");
+                    const valueSpan = buttonParent.find(".value");
+
+                    switch (datePart) {
+                        case "day":
+                            if (parseInt(todayDay) > 1) {
+                                todayDay = todayDay - 1;
+                                valueSpan.text(formatNumber(todayDay));
+                                if (todayDay === 1) disabledButton(button, true);
+                                disabledButton(nextButton, false);
+                            }
+                            break;
+                        case "month":
+                            if (todayMonth > 0) {
+                                todayMonth = todayMonth - 1;
+                                valueSpan.text(months[todayMonth]);
+                                if (todayMonth === 0) disabledButton(button, true);
+                                disabledButton(nextButton, false);
+
+                                if (todayMonth < today.getMonth()) {
+                                    disabledButtonPart(srDatePicker, "next", "day", false)
+                                }
+                            }
+                            break;
+                        case "year":
+                            defaultYear = defaultYear - 1;
+                            valueSpan.text(defaultYear);
+                            disabledButton(nextButton, false);
+
+                            if (defaultYear < dataDefaultToday.year) {
+                                disabledButtonPart(srDatePicker, "next", "day", false);
+                                disabledButtonPart(srDatePicker, "next", "month", false);
+                            }
+
+                            break;
+                    }
+
+                    if ($(value).attr("type") === 'date') jsSrDatePicker.val(defaultYear + "-" + formatNumber(todayMonth + 1) + "-" + formatNumber(todayDay));
+                    else jsSrDatePicker.val(formatNumber(todayDay) + "/" + formatNumber(todayMonth + 1) + "/" + defaultYear);
+                    jsSrDatePicker.valid();
+                    ACC.validations.validateForm(jsSrDatePicker.closest("form"));
+                });
+
+                nextButtonMain.on("click", function () {
+                    const button = $(this);
+                    const buttonParent = button.parent();
+                    activeValue(buttonParent);
+                    const prevButton = buttonParent.find(".prev-button");
+                    const datePart = buttonParent.data("date-part");
+                    const valueSpan = buttonParent.find(".value");
+
+                    switch (datePart) {
+                        case "day":
+                            if (parseInt(todayDay) < 31) {
+                                todayDay = todayDay + 1;
+                                valueSpan.text(formatNumber(todayDay));
+                                if (todayDay === 31) disabledButton(button, true);
+                                disabledButton(prevButton, false);
+
+                                if (defaultYear === dataDefaultToday.year && todayMonth <= today.getMonth() && todayDay === today.getDate() && !$(value).hasClass('normal-date-picker')) {
+                                    disabledButtonPart(srDatePicker, "next", "day", true)
+                                }
+                            }
+                            break;
+                        case "month":
+                            if (todayMonth < 11) {
+                                todayMonth = todayMonth + 1;
+                                valueSpan.text(months[todayMonth]);
+                                if (todayMonth === 11) disabledButton(button, true);
+                                disabledButton(prevButton, false);
+
+                                if (defaultYear === dataDefaultToday.year && todayMonth === today.getMonth() && !$(value).hasClass('normal-date-picker')) {
+                                    disabledButtonPart(srDatePicker, "next", "month", true);
+
+                                    if (todayDay >= today.getDate()) {
+                                        addValueSpanPart(srDatePicker, "day", today.getDate());
+                                        disabledButtonPart(srDatePicker, "next", "day", true);
+                                    }
+                                }
+                            }
+                            break;
+                        case "year":
+                            if (!$(value).hasClass('normal-date-picker')) {
+                                if (defaultYear < dataDefaultToday.year) {
+                                    defaultYear = defaultYear + 1;
+                                    valueSpan.text(defaultYear);
+                                    if (defaultYear === dataDefaultToday.year) {
+                                        disabledButton(button, true);
+
+                                        if (todayDay >= today.getDate() && todayMonth >= today.getMonth()) {
+                                            todayDay = today.getDate();
+                                            addValueSpanPart(srDatePicker, "day", today.getDate());
+                                            disabledButtonPart(srDatePicker, "next", "day", true)
+                                        }
+
+                                        if (todayMonth >= today.getMonth()) {
+                                            todayMonth = today.getMonth();
+                                            addValueSpanPart(srDatePicker, "month", months[today.getMonth()]);
+                                            disabledButtonPart(srDatePicker, "next", "month", true)
+                                        }
+                                    }
+                                    disabledButton(prevButton, false);
+                                }
+                            } else {
+                                defaultYear = defaultYear + 1;
+                                valueSpan.text(defaultYear);
+                                disabledButton(prevButton, false);
+                            }
+                            break;
+                    }
+
+                    if ($(value).attr("type") === 'date') jsSrDatePicker.val(defaultYear + "-" + formatNumber(todayMonth + 1) + "-" + formatNumber(todayDay));
+                    else jsSrDatePicker.val(formatNumber(todayDay) + "/" + formatNumber(todayMonth + 1) + "/" + defaultYear);
+                    jsSrDatePicker.valid();
+                    ACC.validations.validateForm(jsSrDatePicker.closest("form"));
+                });
+            });
+        }
+    },
+    datePickerMyAccount: function () {
+        const jsSrDatePickers = $(".js-sr-date-picker-myaccount");
+
+        jsSrDatePickers.datetimepicker({
+            // debug: true,
+            format: "DD/MM/YYYY",
+            widgetPositioning: {
+                horizontal: 'auto',
+                vertical: 'bottom'
+            }
+        });
+
+        //var _moment = $('#datetimepicker1').data("DateTimePicker").getMoment();
+        jsSrDatePickers.data("DateTimePicker").locale(
+            moment.locale(
+                'en',
+                {
+                    weekdaysMin: 'S_M_T_W_T_F_S'.split('_'),
+                    week: {
+                        dow: 1
+                    }
+                })
+        );
+
+        const jsSrDatePicker = jsSrDatePickers;
+        jsSrDatePicker.wrap('<div class="sr-date-picker-container"></div>');
+        const srDatePickerContainer = jsSrDatePicker.parent();
+        srDatePickerContainer.prepend("<i class='icon shoprite-icon-calendar'>");
+        srDatePickerContainer.append('<button type="button" class="sr-date-picker__button"><i class="shoprite-icon-dropdown-expand"></i></button>');
+
+        const srDatePickerButton = srDatePickerContainer.find(".sr-date-picker__button");
+        const openCalendarBtn = $(".sr-date-picker__button");
+
+        jsSrDatePickers.on("dp.change", function () {
+            srDatePickerContainer.removeClass("is-show");
+        });
+
+        openCalendarBtn.on("click", function () {
+            const rows = srDatePickerButton.parent().find(".sr-date-picker__row");
+            rows.removeClass("is-active");
+
+            if (!srDatePickerContainer.hasClass("is-show")) {
+                srDatePickerContainer.addClass("is-show");
+                jsSrDatePickers.data("DateTimePicker").show();
+
+            } else {
+                srDatePickerContainer.removeClass("is-show");
+                jsSrDatePickers.data("DateTimePicker").hide();
+            }
+
+            $(document).on("click", function (e) {
+                if ($(e.target).closest(".sr-date-picker-container").length <= 0) {
+                    srDatePickerContainer.removeClass("is-show");
+                    $(document).off("click");
+                }
+            });
+        });
+    }
+};

@@ -1,0 +1,775 @@
+const oDoc = document;
+
+ACC.navigation = {
+
+    _autoload: [
+        ["navigationResponsive", $(".navigation--bottom").length],
+        "offcanvasNavigation",
+        "myAccountNavigation",
+        "orderToolsNavigation",
+        "navigation",
+        "prevCatBtn",
+        "scrollHideBorder",
+        "handleOrientationOnTablet"
+    ],
+
+    $backBtn: null,
+    catPrimary: null,
+    backBtnArr: [],
+
+    handleOrientationOnTablet: function () {
+        if (ACC.shopriteutils.isTabletBrowser()) {
+            window.addEventListener('orientationchange', function () {
+                location.reload();
+            });
+        }
+    },
+
+    openPrevCategory: function (btn) {
+        const $catIdArr = btn.attr("col").split(",");
+        const catNode = btn.data("category-node");
+
+        if ($catIdArr[0] === catNode || $catIdArr[0] === "") {
+            $(".login-mobile-leftside").show();
+            $(".js-header-nav-links-top").show();
+            $(".js-offcanvas-links").show();
+            $(".js-enquire-offcanvas-navigation ul.js-offcanvas-links").removeClass("active");
+            $(".js-enquire-offcanvas-navigation .js-enquire-has-sub").removeClass("active");
+
+        } else if ($catIdArr[0] !== '') {
+            const $catId = $catIdArr.length > 0 ? $catIdArr.pop() : [];
+            ACC.navigation.$backBtn.attr("col", $catIdArr.join());
+            ACC.navigation.backBtnArr = $catIdArr;
+            $("div.col").addClass("hidden");
+            $(".js_sub__navigation").find("#" + $catId).parent().parent().parent().removeClass("hidden");
+
+            const arr = ACC.navigation.$backBtn.data().arr;
+            arr.pop();
+            if (arr.length > 0) {
+                const cat = arr[arr.length - 1];
+                ACC.navigation.$backBtn.attr("href", cat.href);
+                ACC.navigation.$backBtn.text(cat.title);
+            }
+        }
+
+        if (ACC.shopriteutils.isTabletBrowser()) {
+            if (ACC.navigation.$backBtn.data().arr.length <= 1) {
+                ACC.navigation.$backBtn.text("All Departments");
+                ACC.navigation.$backBtn.addClass("remove-before");
+            } else {
+                ACC.navigation.$backBtn.removeClass("remove-before");
+            }
+        }
+    },
+
+    prevCatBtn: function () {
+        $(document).on("click", ".js-prev-cat", function (e) {
+            e.preventDefault();
+            ACC.navigation.openPrevCategory($(e.currentTarget));
+        });
+    },
+
+    navigation: function () {
+        function initNavigation() {
+            if (window.innerWidth < 1024 && window.orientation === 0) {
+                $("a").remove(".js-tablet-prev-cat");
+            }
+
+            ACC.navigation.$backBtn = $("#prevCat");
+            const catTitle = ACC.navigation.$backBtn.data("category-title");
+
+            ACC.navigation.$backBtn.data({
+                arr: [{
+                    href: "",
+                    title: catTitle
+                }]
+            });
+
+            ACC.navigation.backBtnArr = [];
+
+            const $navLinkSecondary = $("li.nav__link--secondary");
+
+            $("li.nav__links--primary").off("click");
+            $navLinkSecondary.off("click");
+            $(".js-toggle-tablet-navigation").off("click");
+            $("li.nav__links--primary.js-tablet").off("click");
+            $("li.nav__links--primary.js-enquire-has-sub").off("click");
+            $navLinkSecondary.off("mouseover");
+        }
+
+        enquire
+            .register("screen and (max-width:" + ACC.common.encodeHtml(screenXsMax) + ")", function () {
+                initNavigation();
+                setTimeout(function () {
+                    mobileVersions();
+                    if (ACC.shopriteutils.isTabletBrowser()) {
+                        if (window.orientation === 0) {
+                            $('.tablet-mobile').removeClass("hidden");
+                            $("a").remove(".js-tablet-prev-cat");
+
+                            $("li.nav__links--primary").on("click", function (e) {
+                                const cat = $($(e.currentTarget).find('span')[0]);
+                                ACC.navigation.catPrimary = cat.attr("id");
+
+                                if (cat.attr("id") === "WorldOfCheckersMobileNavNodeEntry" || cat.attr("id") === "BrowseProductsMobileNavNodeEntry") {
+                                    e.preventDefault();
+                                    $(e.currentTarget).find('span.shoprite-icon-dropdown-expand')[0].click();
+                                }
+                            });
+
+                            $("li.nav__link--secondary").on("click", function (e) {
+                                const $li = $(e.currentTarget);
+
+                                if ($li.hasClass('view-all') || $li.hasClass('non-department')) {
+                                    const href = $li.find('a').attr('href');
+                                    const target = $li.find('a').attr('target');
+                                    window.open(href, target === undefined ? "_self" : target);
+                                }
+
+                                const $catId = $li.attr("id");
+
+                                if (ACC.navigation.backBtnArr.length <= 3 && $catId) {
+                                    const $subNavigation = $(".js_sub__navigation");
+                                    if ($subNavigation.find("." + $catId).find('ul li').length === 0) {
+                                        location.href = ACC.config.encodedContextPath + $(e.currentTarget).find('a').attr('href');
+                                    }
+
+                                    $("div.col").addClass("hidden");
+                                    ACC.navigation.backBtnArr.push($catId);
+                                    ACC.navigation.$backBtn.attr("col", ACC.navigation.backBtnArr.join());
+                                    $subNavigation.find("." + $catId).removeClass("hidden");
+
+                                    const prevCatName = $li.find('a').attr("title");
+                                    const prevCatHref = $li.find('a').attr("href");
+                                    ACC.navigation.$backBtn.data().arr.push({
+                                        href: prevCatHref,
+                                        title: prevCatName
+                                    });
+
+                                    ACC.navigation.$backBtn.attr("href", prevCatHref);
+                                    ACC.navigation.$backBtn.text(prevCatName);
+                                }
+                            });
+                        } else {
+                            ACC.navigation.$backBtn.text("All Departments");
+                            ACC.navigation.$backBtn.addClass("remove-before");
+
+                            if ($(".js-tablet-nav #BrowseProductsMobileNavNodeEntry").closest('nav').find('ul').not('.sub-navigation-list').length > 1) {
+                                const $browseProductsMobileNavNodeEntry = $("#BrowseProductsMobileNavNodeEntry");
+                                $browseProductsMobileNavNodeEntry.closest('nav').find('ul')[0].remove();
+                                $browseProductsMobileNavNodeEntry.closest('nav').find('ul').find('li')[0].remove();
+                            }
+
+                            $('.js-tablet-nav').show();
+                            $(".login-mobile-leftside").hide();
+                            $("button").remove(".js-toggle-sm-navigation");
+                            const navClose = $("<button>").attr("type", "button")
+                                .addClass("close-sm-navigation js-toggle-tablet-navigation btn close-icon-mobile")
+                                .append($("<i>").addClass("shoprite-icon-close"))
+                            $(".js_sub__navigation").prepend(navClose);
+
+                            $(".js-toggle-tablet-navigation").on("click", function () {
+                                $(".js-tablet-nav .navigation__overflow").removeClass("slide");
+                                $(".browse-products-tablet").find('div').hide();
+                                $('div').remove(".sub-navigation-overlay");
+                            });
+
+
+                            $("li.nav__links--primary.js-tablet").on("click", function (e) {
+                                const primaryLink = $(e.currentTarget);
+                                const hasOverlay = $('.sub-navigation-overlay').length > 0;
+                                const hasSlide = $(".js-tablet-nav .navigation__overflow").hasClass('slide');
+                                const _asmHeight = $("#_asm").outerHeight() || 0;
+                                const topHeaderHight = $(".header__top").outerHeight();
+                                const botomHeaderHeight = $(".header__bottom").outerHeight();
+                                const cat = $($(e.currentTarget).find('span')[0]);
+                                ACC.navigation.catPrimary = cat.attr("id");
+
+                                if (!hasSlide || $("li.nav__links--primary.js-tablet").hasClass('show-sub')) {
+                                    if (!hasOverlay) {
+                                        $('footer').append('<div class="sub-navigation-overlay js-sub-navigation-overlay"></div>');
+
+                                        $(".js-sub-navigation-overlay").one("click", function () {
+                                            $(".js-tablet-nav .navigation__overflow").removeClass("slide");
+                                            $(".browse-products-tablet").find('div').hide();
+                                            primaryLink.removeClass('show-sub');
+                                            $('div').remove(".sub-navigation-overlay");
+                                        })
+                                    } else {
+                                        $('div').remove(".sub-navigation-overlay");
+                                    }
+                                }
+
+                                if (cat.attr("id") === "BrowseProductsNavNodeEntry") {
+                                    e.preventDefault();
+                                    $(".browse-products-tablet").find('div').show();
+                                    $(".login-mobile-leftside").hide();
+                                    $("#HomeMobileNavNodeEntry").hide();
+                                    $("#backBtn").hide();
+
+                                    if (hasSlide) {
+                                        $(".js-tablet-nav .navigation__overflow").removeClass("slide");
+                                    } else {
+                                        $(".js-tablet-nav .navigation__overflow").addClass("slide");
+                                    }
+
+                                    const $navLinksPrimaryJsTablet = $("li.nav__links--primary.js-tablet");
+                                    if ($navLinksPrimaryJsTablet.hasClass('show-sub')) {
+                                        $navLinksPrimaryJsTablet.removeClass('show-sub');
+                                    }
+
+
+                                } else if (cat.attr("id") === "WorldOfCheckersNavNodeEntry") {
+                                    e.preventDefault();
+                                    if (primaryLink.hasClass("world-of-checkers")) {
+                                        const hasSub = primaryLink.hasClass('show-sub'); //don't move from here
+                                        if (!hasSub) {
+                                            primaryLink.addClass('show-sub');
+                                            const $subNav = primaryLink.find('.js_sub__navigation');
+                                            $subNav.css("top", botomHeaderHeight + _asmHeight)
+                                        } else {
+                                            primaryLink.removeClass('show-sub');
+                                        }
+                                    }
+
+                                    if (hasSlide) {
+                                        $(".js-tablet-nav .navigation__overflow").addClass("slide");
+                                        $(".browse-products-tablet").find('div').hide();
+                                    }
+
+                                    $(".sub-navigation-overlay").css('top', botomHeaderHeight + topHeaderHight + _asmHeight);
+                                }
+
+                            });
+
+                            $("li.nav__link--secondary").on("click", function (e) {
+                                e.preventDefault();
+                                const $li = $(e.currentTarget);
+                                const $catId = $li.attr("id");
+
+                                ACC.navigation.$backBtn.removeClass("remove-before");
+                                if ($(e.currentTarget).hasClass('view-all') || $li.hasClass('non-department')) {
+                                    const href = $li.find('a').attr('href');
+                                    const target = $li.find('a').attr('target');
+                                    window.open(href, target === undefined ? "_self" : target);
+                                }
+
+                                if (ACC.navigation.backBtnArr.length <= 3 && $catId) {
+                                    const $subNavigation = $(".js_sub__navigation");
+                                    if ($subNavigation.find("." + $catId).find('ul li').length === 0) {
+                                        location.href = ACC.config.encodedContextPath + $(e.currentTarget).find('a').attr('href');
+                                        return;
+                                    }
+                                    $("div.col").addClass("hidden");
+                                    ACC.navigation.backBtnArr.push($catId);
+                                    ACC.navigation.$backBtn.attr("col", ACC.navigation.backBtnArr.join());
+                                    $subNavigation.find("." + $catId).removeClass("hidden");
+
+                                    const prevCatName = $li.find('a').attr("title");
+                                    const prevCatHref = $li.find('a').attr("href");
+                                    ACC.navigation.$backBtn.data().arr.push({
+                                        href: prevCatHref,
+                                        title: prevCatName
+                                    });
+
+                                    ACC.navigation.$backBtn.attr("href", prevCatHref);
+                                    ACC.navigation.$backBtn.text(prevCatName);
+                                }
+                            });
+                        }
+                    }
+                }, 500);
+            })
+            .register("screen and (min-width:" + ACC.common.encodeHtml(screenSmMin) + ")", function () {
+                setTimeout(function () {
+                    minWidthScreenSmMin();
+                }, 500);
+            });
+
+        function minWidthScreenSmMin() {
+            const $navLinkSecondary = $("li.nav__link--secondary");
+            initNavigation();
+            if (ACC.shopriteutils.isTabletBrowser()) {
+                $navLinkSecondary.on("click", function (e) {
+                    const $li = $(e.currentTarget);
+                    if ($li.hasClass('view-all') || $li.hasClass('non-department') || $li.hasClass("go-to")) {
+                        const href = $li.find('a').attr('href');
+                        const target = $li.find('a').attr('target');
+                        window.open(href, target === undefined ? "_self" : target);
+                    }
+                    e.preventDefault();
+                });
+
+                $("li.nav__links--primary.js-enquire-has-sub").on("click", function (e) {
+                    e.preventDefault();
+                    const navLink = $(e.target).closest('li');
+                    if (navLink.hasClass("browse-products") || navLink.hasClass("world-of-checkers")) {
+                        const $primaryLink = $(e.currentTarget);
+                        const chevron = $primaryLink.children(".nav__link--drill__down");
+                        const hasSub = $primaryLink.hasClass('show-sub');
+
+                        if (hasSub) {
+                            $primaryLink.removeClass('show-sub');
+                            $('div').remove(".sub-navigation-overlay");
+                            chevron.removeClass("rotate-dropdown-arrow");
+                        } else {
+                            const _asmHeight = $("#_asm").height() || 0;
+                            const topHeaderHeight = $(".header__top").height();
+                            const bottomHeaderHeight = $(".header__bottom").height();
+                            chevron.addClass("rotate-dropdown-arrow");
+                            $('footer').append('<div class="sub-navigation-overlay js-sub-navigation-overlay"></div>');
+                            $primaryLink.addClass('show-sub');
+                            $(".sub-navigation-overlay").css('top', bottomHeaderHeight + topHeaderHeight + _asmHeight + 11);
+                        }
+                    }
+                });
+            }
+
+            $navLinkSecondary.on("mouseover", function (e) {
+                let $colId = parseInt($(e.currentTarget).parent().parent().parent().attr("col")) + 1;
+                const $catId = $(e.currentTarget).attr("id");
+                const allCoulmns = 4;
+                for (; $colId <= allCoulmns; $colId++) {
+                    $("div[col='" + $colId + "']").addClass("hidden");
+                }
+                const $subNavigation = $(".js_sub__navigation");
+                const notEmpty = $subNavigation.find("." + $catId + ' ul > li').length > 0;
+                $navLinkSecondary.removeClass("selected");
+
+                if (notEmpty) {
+                    $subNavigation.find("." + $catId).removeClass("hidden");
+
+                    const visibleCols = $(".col").not('.hidden');
+                    $.each(visibleCols, function (i, col) {
+                        $("li#" + $(col).attr('sup-cat') + ".nav__link--secondary").addClass("selected")
+                    });
+                }
+            });
+        }
+
+        function mobileVersions() {
+            if (ACC.shopriteutils.isMobileBrowser() || window.innerWidth <= 636) {
+                $("li.nav__links--primary").on("click", function (e) {
+                    const cat = $($(e.currentTarget).find('span')[0]);
+                    ACC.navigation.catPrimary = cat.attr("id");
+
+                    if (cat.attr("id") === "WorldOfCheckersMobileNavNodeEntry" || cat.attr("id") === "BrowseProductsMobileNavNodeEntry") {
+                        e.preventDefault();
+                        const nextTier = $(e.currentTarget).find('span.shoprite-icon-dropdown-expand')[0];
+                        $(e.currentTarget).find('span.shoprite-icon-dropdown-expand')[0].removeClass(".rotate-dropdown-arrow");
+                        nextTier.click();
+                    }
+                });
+
+                $("li.nav__link--secondary").on("click", function (e) {
+                    const $li = $(e.currentTarget);
+
+                    if ($li.hasClass('view-all') || $li.hasClass('non-department')) {
+                        const href = $li.find('a').attr('href');
+                        const target = $li.find('a').attr('target');
+                        window.open(href, target === undefined ? "_self" : target);
+                    }
+
+                    const $catId = $li.attr("id");
+
+                    if (ACC.navigation.backBtnArr.length <= 3 && $catId) {
+                        const $subNavigation = $(".js_sub__navigation");
+                        if ($subNavigation.find("." + $catId).find('ul li').length === 0) {
+                            location.href = ACC.config.encodedContextPath + $(e.currentTarget).find('a').attr('href');
+                        }
+
+                        $("div.col").addClass("hidden");
+                        ACC.navigation.backBtnArr.push($catId);
+                        ACC.navigation.$backBtn.attr("col", ACC.navigation.backBtnArr.join());
+                        $subNavigation.find("." + $catId).removeClass("hidden");
+
+                        const prevCatName = $li.find('a').attr("title");
+                        const prevCatHref = $li.find('a').attr("href");
+                        ACC.navigation.$backBtn.data().arr.push({
+                            href: prevCatHref,
+                            title: prevCatName
+                        });
+
+                        ACC.navigation.$backBtn.attr("href", prevCatHref);
+                        ACC.navigation.$backBtn.text(prevCatName);
+                    }
+                });
+            }
+        }
+    },
+
+    offcanvasNavigation: function () {
+        enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenSmMax) + ")", {
+            match: function () {
+                $(document).on("click", ".js-enquire-offcanvas-navigation .js-enquire-has-sub .js_nav__link--drill__down", function (e) {
+                    e.preventDefault();
+                    $(".login-mobile-leftside").hide();
+                    $(".js-header-nav-links-top").hide();
+                    $(".js-enquire-offcanvas-navigation ul.js-offcanvas-links").addClass("active");
+                    $(".js-enquire-offcanvas-navigation .js-enquire-has-sub").removeClass("active");
+                    $(".js-offcanvas-links").hide();
+                    $(this).parent().parent().show();
+                    $(this).parent(".js-enquire-has-sub").addClass("active");
+                });
+
+
+                $(document).on("click", ".js-enquire-offcanvas-navigation .js-enquire-sub-close", function (e) {
+                    e.preventDefault();
+                    $(".login-mobile-leftside").show();
+                    $(".js-header-nav-links-top").show();
+                    $(".js-offcanvas-links").show();
+                    $(".js-enquire-offcanvas-navigation ul.js-offcanvas-links").removeClass("active");
+                    $(".js-enquire-offcanvas-navigation .js-enquire-has-sub").removeClass("active");
+
+                    const $catIdArr = ACC.navigation.$backBtn.attr("col").split(",");
+
+                    if ($(e.target).hasClass('backBtn') && $catIdArr[0] !== 'BrowseProductsNavNode' && $catIdArr[0] !== 'BrowseProductsMobileNavNode' && $catIdArr[0] !== "") {
+                        ACC.navigation.$backBtn.attr("col", "");
+                        ACC.navigation.backBtnArr = [];
+                        const $catId = $catIdArr.length > 0 ? $catIdArr.shift() : [];
+                        $("div.col").addClass("hidden");
+                        $(".js_sub__navigation").find("#" + $catId).parent().parent().parent().removeClass("hidden");
+
+                        const catTitle = ACC.navigation.$backBtn.data("category-title");
+
+                        ACC.navigation.$backBtn.data({
+                            arr: [{
+                                href: "",
+                                title: catTitle
+                            }]
+                        });
+                        const arr = ACC.navigation.$backBtn.data().arr;
+                        const cat = arr[arr.length - 1];
+                        ACC.navigation.$backBtn.attr("href", cat.href);
+                        ACC.navigation.$backBtn.text(cat.title);
+                    }
+                });
+            },
+            unmatch: function () {
+                $(".js-userAccount-Links").show();
+                $(".js-enquire-offcanvas-navigation ul.js-offcanvas-links").removeClass("active");
+                $(".js-enquire-offcanvas-navigation .js-enquire-has-sub").removeClass("active");
+
+                $(document).off("click", ".js-enquire-offcanvas-navigation .js-enquire-has-sub > a");
+                $(document).off("click", ".js-enquire-offcanvas-navigation .js-enquire-sub-close");
+            }
+        });
+
+    },
+
+    myAccountNavigation: function () {
+        //copy the site logo
+        $('.js-mobile-logo').html($('.js-site-logo a').clone());
+
+        //Add the order form img in the navigation
+        $('.nav-form').append($("<span>").addClass("glyphicon glyphicon-list-alt"));
+
+        const aAcctData = [];
+        let sSignBtn = "";
+
+        //my account items
+        const oMyAccountData = $(".accNavComponent");
+
+        //the my Account hook for the desktop
+        const oMMainNavDesktop = $(".js-secondaryNavAccount > ul");
+
+        if (oMyAccountData) {
+            const aLinks = oMyAccountData.find("a");
+            for (let i = 0; i < aLinks.length; i++) {
+                aAcctData.push({link: aLinks[i].href, text: aLinks[i].title});
+            }
+        }
+
+        const navClose = $("<div>").addClass("close-nav")
+            .append($("<button>").attr("type", "button")
+                .addClass("js-toggle-sm-navigation btn")
+                .append($("<span>").addClass("glyphicon glyphicon-remove")));
+
+        //create Sign In/Sign Out Button
+        const $liOffcanvasA = $(".liOffcanvas a");
+        if ($liOffcanvasA && $liOffcanvasA.length > 0) {
+            sSignBtn = $("<li>").addClass("auto liUserSign")
+                .append($("<a>").addClass("userSign")
+                    .attr("href", $liOffcanvasA[0].href));
+        }
+
+        //create Welcome User + expand/collapse and close button
+        //This is for mobile navigation. Adding html and classes.
+        const oUserInfo = $(".nav__right ul li.logged_in");
+        //Check to see if user is logged in
+
+        if (oUserInfo && oUserInfo.length === 1) {
+            /*var sUserBtn = $("<li>").addClass("auto")
+            .append($("<div>")
+                    .addClass("userGroup")
+                    .append($("<span>")
+                            .addClass("glyphicon glyphicon-user myAcctUserIcon"))
+                            .append($("<div>")
+                                    .addClass("userName")
+                                    .html(oUserInfo[0].innerHTML)));*/
+
+            const sUserBtn = $("<li>").addClass("auto")
+                .append($("<div>")
+                    .addClass("userGroup")
+                    .append($("<div>")
+                        .addClass("userName")
+                        .html(oUserInfo[0].innerHTML)));
+
+            if (aAcctData.length > 0) {
+                $(sUserBtn).find(".userGroup").append($("<a>").addClass("collapsed js-nav-collapse")
+                    .attr("id", "signedInUserOptionsToggle")
+                    .attr("data-toggle", "collapse")
+                    .attr("data-target", ".offcanvasGroup1")
+                    .append($("<span>").addClass("glyphicon glyphicon-chevron-up myAcctExp")));
+            }
+            sUserBtn.append(navClose);
+
+            $('.js-sticky-user-group').html(sUserBtn);
+
+            const $userAccountLinks = $('.js-userAccount-Links');
+            $userAccountLinks.append(sSignBtn);
+            $userAccountLinks.append($("<li>").addClass("auto").append($("<div>").addClass("myAccountLinksContainer js-myAccountLinksContainer")));
+
+            //FOR DESKTOP
+            const myAccountHookDesktop = $("<div>").addClass("myAccountLinksHeader js-myAccount-toggle")
+                .attr("data-toggle", "collapse")
+                .attr("data-parent", ".nav__right")
+                .text(oMyAccountData.data("title"));
+
+            myAccountHookDesktop.insertBefore(oMyAccountData);
+
+            //*For toggling collapse myAccount on Desktop instead of with Bootstrap.js
+            $('.myAccountLinksHeader').click(function () {
+                $(this).toggleClass('show');
+                $(".js-secondaryNavAccount").slideToggle(400);
+                if ($(this).hasClass('show')) {
+                    $('.myCompanyLinksHeader').removeClass('show'); // hide the other one
+                    $('.js-secondaryNavCompany').slideUp(400);
+                }
+                return false;
+            });
+
+            //FOR MOBILE
+            //create a My Account Top link for desktop - in case more components come then more parameters need to be passed from the backend
+            const myAccountHookMobile = $("<div>").addClass("sub-nav")
+                .append($("<a>").attr("id", "signedInUserAccountToggle")
+                    .addClass("myAccountLinksHeader collapsed js-myAccount-toggle")
+                    .attr("data-toggle", "collapse")
+                    .attr("data-target", ".offcanvasGroup2")
+                    .text(oMyAccountData.data("title"))
+                    .append($("<span>").addClass("glyphicon glyphicon-chevron-down myAcctExp")));
+
+            const $myAccountLinksContainer = $('.js-myAccountLinksContainer');
+            $myAccountLinksContainer.append(myAccountHookMobile);
+
+            //add UL element for nested collapsing list
+            $myAccountLinksContainer.append($("<ul>")
+                .attr("data-trigger", "#signedInUserAccountToggle")
+                .addClass("offcanvasGroup2 offcanvasNoBorder collapse js-nav-collapse-body subNavList js-myAccount-root sub-nav"));
+
+            //*For toggling collapse on Mobile instead of with Bootstrap.js
+            $('#signedInUserAccountToggle').click(function () {
+                $(this).toggleClass('show');
+                $(".offcanvasGroup2").slideToggle(400);
+                if ($(this).hasClass('show')) {
+                    const $signedInCompanyToggle = $('#signedInCompanyToggle');
+                    $(this).find('span').removeClass('glyphicon-chevron-down').addClass('glyphicon-chevron-up');
+                    $signedInCompanyToggle.removeClass('show'); // hide the other one
+                    $signedInCompanyToggle.find('span').removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down');
+                    $('.offcanvasGroup3').slideUp(400);
+                } else {
+                    $(this).find('span').removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down');
+                }
+            });
+
+            //offcanvas items
+            //TODO Follow up here to see the output of the account data in the offcanvas menu
+            for (let i = 0; i < aAcctData.length; i++) {
+                const oLink = oDoc.createElement("a");
+                oLink.title = aAcctData[i].text;
+                oLink.href = aAcctData[i].link;
+                oLink.innerHTML = ACC.common.encodeHtml(aAcctData[i].text);
+
+                let oListItem = oDoc.createElement("li");
+                oListItem.appendChild(oLink);
+                oListItem = $(oListItem);
+                oListItem.addClass("auto ");
+                $('.js-myAccount-root').append(oListItem);
+            }
+
+        } else {
+            if (sSignBtn) {
+                const navButtons = sSignBtn.append(navClose);
+                // $('.js-sticky-user-group').append(navButtons);
+            }
+        }
+
+        //desktop
+        for (let i = 0; i < aAcctData.length; i++) {
+            const oLink = oDoc.createElement("a");
+            oLink.title = aAcctData[i].text;
+            oLink.href = aAcctData[i].link;
+            oLink.innerHTML = ACC.common.encodeHtml(aAcctData[i].text);
+
+            let oListItem = oDoc.createElement("li");
+            oListItem.appendChild(oLink);
+            oListItem = $(oListItem);
+            oListItem.addClass("auto col-md-4");
+            oMMainNavDesktop.get(0).appendChild(oListItem.get(0));
+        }
+
+        //hide and show content areas for desktop
+        $('.js-secondaryNavAccount').on('shown.bs.collapse', function () {
+            if ($('.js-secondaryNavCompany').hasClass('in')) {
+                $('.js-myCompany-toggle').click();
+            }
+        });
+
+        $('.js-secondaryNavCompany').on('shown.bs.collapse', function () {
+            if ($('.js-secondaryNavAccount').hasClass('in')) {
+                $('.js-myAccount-toggle').click();
+            }
+        });
+
+        //change icons for up and down
+        const $navCollapseBody = $('.js-nav-collapse-body');
+        $navCollapseBody.on('hidden.bs.collapse', function (e) {
+            const target = $(e.target);
+            const targetSpanSelector = target.attr('data-trigger') + ' > span';
+            if (target.hasClass('in')) {
+                $(document).find(targetSpanSelector).removeClass('glyphicon-chevron-down').addClass('glyphicon-chevron-up');
+            } else {
+                $(document).find(targetSpanSelector).removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down');
+            }
+        });
+
+        $navCollapseBody.on('show.bs.collapse', function (e) {
+            const target = $(e.target);
+            const targetSpanSelector = target.attr('data-trigger') + ' > span';
+            if (target.hasClass('in')) {
+                $(document).find(targetSpanSelector).removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down');
+            } else {
+                $(document).find(targetSpanSelector).removeClass('glyphicon-chevron-down').addClass('glyphicon-chevron-up');
+            }
+        });
+    },
+
+    orderToolsNavigation: function () {
+        $('.js-nav-order-tools').on('click', function () {
+            $(this).toggleClass('js-nav-order-tools--active');
+        });
+    },
+
+    scrollHideBorder: function () {
+        $(".sub-navigation-row").scroll(function () {
+            const $subNavigationRow = $(".sub-navigation-row");
+            const scroll = $subNavigationRow.scrollTop();
+            if (scroll >= 10) {
+                $subNavigationRow.addClass("row-top-border");
+            } else {
+                $subNavigationRow.removeClass("row-top-border");
+            }
+        });
+    },
+
+    navigationResponsive: function () {
+        const $navigationBottom = $(".navigation--bottom");
+        const $browseProductsNavNodeEntry = $navigationBottom.find("#BrowseProductsNavNodeEntry");
+        const $worldOfCheckersNavNodeEntry = $navigationBottom.find("#WorldOfCheckersNavNodeEntry");
+
+        const $jsHeaderNavLinksTop = $(".js-header-nav-links-top");
+        const $headerNavLinksTop = $(".header-nav-links-top").find(".header-nav-links");
+        const $allSpecialsNavNodeEntry = $("#AllSpecialsNavNodeEntry");
+
+        const $jsHeaderNavLinksBottom = $(".js-header-nav-links-bottom");
+        const $browseProductsNavNode = $(".BrowseProductsNavNode");
+        const $browseProductsNavNodeExtraLinks = $browseProductsNavNode.find(".nav__link--extra-link");
+
+        let mobileLoaded = false;
+
+        enquire.register("screen and (max-width:" + ACC.common.encodeHtml(screenXsMax) + ")", {
+            match: function () {
+                resetHiddenSubNavigationSections();
+
+                $browseProductsNavNodeEntry.closest(".nav__links--products").append($browseProductsNavNodeEntry.parent());
+
+                if (!mobileLoaded) {
+                    let headerNavLinksTopMobileTemplate = '<ul class="nav__links nav__links--products" style="">';
+                    $.each($headerNavLinksTop, function (index, element) {
+                        if (index === 0) {
+                            headerNavLinksTopMobileTemplate += '<li class="auto nav__links--primary mobile-nav-border primary-link-color">' + element.innerHTML + '</li>';
+                            if ($allSpecialsNavNodeEntry.length) {
+                                headerNavLinksTopMobileTemplate += '<li class="auto nav__links--primary mobile-nav-border ">' + $allSpecialsNavNodeEntry.html() + '</li>';
+                            }
+                        } else {
+                            headerNavLinksTopMobileTemplate += '<li class="auto nav__links--primary mobile-nav-border ">' + element.innerHTML + '</li>';
+                        }
+                    });
+                    headerNavLinksTopMobileTemplate += '</ul>';
+                    $jsHeaderNavLinksTop.html(headerNavLinksTopMobileTemplate);
+
+
+                    let headerNavLinksBottomMobileTemplate = '<ul class="nav__links nav__links--products login-mobile-leftside" style="">';
+                    $.each($browseProductsNavNodeExtraLinks, function (index, element) {
+                        headerNavLinksBottomMobileTemplate += '<li class="yCmsComponent nav__link--secondary view-all">' + element.innerHTML + '</li>'
+                    });
+                    headerNavLinksBottomMobileTemplate += '</ul>';
+                    $jsHeaderNavLinksBottom.html(headerNavLinksBottomMobileTemplate);
+
+                    const $browseProductsNavNodeSubNavigationList = $browseProductsNavNode.find('.sub-navigation-list');
+                    const allDepartmentsViewAllUrl = $browseProductsNavNodeSubNavigationList.find(".view-all a").attr("href");
+                    $browseProductsNavNodeSubNavigationList.find("hr").hide();
+                    $browseProductsNavNodeSubNavigationList.append('<li class="nav__link--secondary view-all visible-xs"> <a href="' + allDepartmentsViewAllUrl + '">' + loc("view.all.departments") + '</a> </li>');
+
+                    function getButtonNavigationClose(title) {
+                        return '<button type="button" class="close-sm-navigation js-toggle-sm-navigation btn close-icon-mobile visible-xs"> <i class="shoprite-icon-close"></i> </button><a class="sm-back js-enquire-sub-close visible-xs" href="#">' + title + '</a>';
+                    }
+                    $worldOfCheckersNavNodeEntry.parent().find(".js_sub__navigation").prepend(getButtonNavigationClose($worldOfCheckersNavNodeEntry.text()));
+
+                    $browseProductsNavNodeEntry.parent().find(".js_sub__navigation").prepend('<a class="sm-back js-prev-cat prevCat visible-xs" col="BrowseProductsMobileNavNode" data-category-node="BrowseProductsMobileNavNode" data-category-title="Browse Products" id="prevCat" href="#">' + $browseProductsNavNodeEntry.text() + '</a><button type="button" class="close-sm-navigation js-toggle-sm-navigation btn close-icon-mobile visible-xs"> <i class="shoprite-icon-close"></i> </button><a class="sm-back js-enquire-sub-close backBtn visible-xs" id="backBtn" href="#">' + loc("back.to.main") + '</a>');
+
+                    $navigationBottom.find('.js-offcanvas-links > .js-enquire-has-sub.hidden-sm > .js_sub__navigation').each(function () {
+                        const $this = $(this);
+                        if(!$this.find('.close-sm-navigation').length) {
+                            $this.parent().find(".js_sub__navigation").prepend(getButtonNavigationClose($this.closest('.js-enquire-has-sub').find('.js_nav__link').text()));
+                        }
+                    });
+
+                    const $subNavigationSection = $(".sub-navigation-section");
+                    $.each($subNavigationSection, function (index, element) {
+                        const $element = $(element);
+                        const elementSupCat = $element.attr("sup-cat");
+
+                        if (elementSupCat !== undefined) {
+                            const $elementSubNavigationList = $element.find(".sub-navigation-list");
+
+                            if ($elementSubNavigationList.length) {
+                                const elementViewAllTitle = $elementSubNavigationList.find(".view-all .title").text();
+                                const viewAllText = loc("view.all") + " " + elementViewAllTitle;
+                                const elementViewAllUrl = $elementSubNavigationList.find(".view-all a").attr("href");
+                                $elementSubNavigationList.append('<li class="nav__link--secondary view-all visible-xs"> <a href="' + elementViewAllUrl + '">' + viewAllText + '</a> </li>');
+                            }
+                        }
+                    });
+                    mobileLoaded = true;
+                }
+            },
+            unmatch: function () {
+                resetHiddenSubNavigationSections();
+                $browseProductsNavNodeEntry.closest(".nav__links--products").prepend($browseProductsNavNodeEntry.parent());
+            }
+        });
+
+        function resetHiddenSubNavigationSections() {
+            const $subNavigationSection = $(".sub-navigation-section");
+
+            $.each($subNavigationSection, function (index, element) {
+                const $element = $(element);
+                if ($element.attr("col") !== undefined) {
+                    if ($element.attr("col") === "1") $element.removeClass("hidden");
+                    else $element.addClass("hidden");
+                }
+            });
+        }
+    }
+};
